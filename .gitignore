@@ -1,4 +1,4 @@
-# NYC Parking Analysis - Git Ignore File
+﻿# NYC Parking Analysis - Git Ignore File
 
 # Virtual Environment
 venv/
@@ -35,7 +35,6 @@ wheels/
 # Environment variables
 .env
 .env.local
-.venv
 
 # API Keys and Secrets
 secrets.json
@@ -52,16 +51,22 @@ data/geospatial/*.geojson
 *.h5
 *.hdf5
 
-# Exception: Keep small sample files
+# Exception: Keep small sample files for testing
 !data/sample*.csv
 !data/sample*.json
 
-# Output files
-outputs/maps/*.png
-outputs/maps/*.jpg
-outputs/maps/*.html
+# Report and spreadsheet files (potentially large)
+outputs/reports/*.html
 outputs/reports/*.pdf
 outputs/reports/*.docx
+outputs/figures/*.png
+outputs/figures/*.jpg
+outputs/figures/*.pdf
+*.csv
+*.xlsx
+*.xls
+*.xlsm
+*.ods
 
 # IDE
 .vscode/
@@ -69,7 +74,6 @@ outputs/reports/*.docx
 *.swp
 *.swo
 *~
-.DS_Store
 
 # Database
 *.db
