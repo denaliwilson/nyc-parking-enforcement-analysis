@@ -248,7 +248,7 @@ class NYCParkingDataLoader:
             
             # Progress update
             progress = (len(all_data) / total_records) * 100
-            print(f"   ✓ Total records loaded: {len(all_data):,} ({progress:.1f}%)")
+            print(f"   Total records loaded: {len(all_data):,} ({progress:.1f}%)")
             
             # Small delay to be respectful of API
             time.sleep(0.5)
@@ -299,7 +299,7 @@ def save_data(df, filename=None, output_dir=None):
         print(f"   Records: {len(df):,}")
         return filepath
     except Exception as e:
-        print(f"❌ Error saving file: {e}")
+        print(f"Error saving file: {e}")
         return None
 
 
@@ -313,7 +313,7 @@ def display_summary(df):
         Data to summarize
     """
     if df is None or len(df) == 0:
-        print("⚠️  No data to display")
+        print("No data to display")
         return
     
     print(f"\n{'='*60}")
@@ -392,7 +392,7 @@ def main():
     #     save_data(large_df, filename="parking_large_dataset.csv")
     
     print("\n" + "="*60)
-    print("✅ Data loading complete!")
+    print("Data loading complete!")
     print("="*60 + "\n")
 
 

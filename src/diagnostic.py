@@ -32,34 +32,34 @@ important_paths = {
 }
 
 for name, path in important_paths.items():
-    exists = "✅" if path.exists() else "❌"
+    exists = "[OK]" if path.exists() else "[MISSING]"
     print(f"   {exists} {name}: {path}")
 
 # 4. Try importing requests
 print(f"\n4. Testing Required Libraries:")
 try:
     import requests
-    print(f"   ✅ requests: {requests.__version__}")
+    print(f"   requests: {requests.__version__}")
 except ImportError:
-    print(f"   ❌ requests: NOT INSTALLED - Run: pip install requests")
+    print(f"   requests: NOT INSTALLED - Run: pip install requests")
 
 try:
     import pandas
-    print(f"   ✅ pandas: {pandas.__version__}")
+    print(f"   pandas: {pandas.__version__}")
 except ImportError:
-    print(f"   ❌ pandas: NOT INSTALLED - Run: pip install pandas")
+    print(f"   pandas: NOT INSTALLED - Run: pip install pandas")
 
 # 5. Try importing config
 print(f"\n5. Testing Module Imports:")
 sys.path.insert(0, str(project_root))
 try:
     from src import config
-    print(f"   ✅ config module imported successfully")
+    print(f"   config module imported successfully")
     print(f"   API URL: {config.API_BASE_URL}")
 except ImportError as e:
-    print(f"   ❌ Failed to import config: {e}")
+    print(f"   Failed to import config: {e}")
 except Exception as e:
-    print(f"   ⚠️  Config imported but error: {e}")
+    print(f"   Config imported but error: {e}")
 
 # 6. Test API connectivity
 print(f"\n6. Testing NYC Open Data API:")
@@ -73,51 +73,51 @@ try:
     
     if response.status_code == 200:
         data = response.json()
-        print(f"   ✅ API connection successful!")
+        print(f"   API connection successful!")
         print(f"   Retrieved {len(data)} records")
         if data:
             print(f"   Sample keys: {list(data[0].keys())[:5]}")
     else:
-        print(f"   ❌ API returned status code: {response.status_code}")
+        print(f"   API returned status code: {response.status_code}")
         print(f"   Response: {response.text[:200]}")
         
 except requests.exceptions.Timeout:
-    print(f"   ❌ Connection timed out")
+    print(f"   Connection timed out")
 except requests.exceptions.ConnectionError:
-    print(f"   ❌ Connection error - check internet connection")
+    print(f"   Connection error - check internet connection")
 except Exception as e:
-    print(f"   ❌ Error: {e}")
+    print(f"   Error: {e}")
 
 # 7. Try importing data_loader
 print(f"\n7. Testing Data Loader Import:")
 try:
     from src.data_loader import NYCParkingDataLoader
-    print(f"   ✅ NYCParkingDataLoader imported successfully")
+    print(f"   NYCParkingDataLoader imported successfully")
     
     # Try creating an instance
     loader = NYCParkingDataLoader()
-    print(f"   ✅ Loader instance created")
+    print(f"   Loader instance created")
     print(f"   Base URL: {loader.base_url}")
     
 except ImportError as e:
-    print(f"   ❌ Failed to import: {e}")
+    print(f"   Failed to import: {e}")
 except Exception as e:
-    print(f"   ❌ Error creating loader: {e}")
+    print(f"   Error creating loader: {e}")
 
 # 8. Environment check
 print(f"\n8. Environment Variables:")
 app_token = os.getenv("NYC_APP_TOKEN")
 if app_token:
-    print(f"   ✅ NYC_APP_TOKEN is set (length: {len(app_token)})")
+    print(f"   NYC_APP_TOKEN is set (length: {len(app_token)})")
 else:
-    print(f"   ⚠️  NYC_APP_TOKEN not set (optional - will use default rate limits)")
+    print(f"   NYC_APP_TOKEN not set (optional - will use default rate limits)")
 
 print("\n" + "="*60)
 print("DIAGNOSTIC COMPLETE")
 print("="*60)
 
 # Summary
-print("\nQuick fixes if you see ❌:")
+print("\nQuick fixes if you see [MISSING]:")
 print("1. If modules not found → Run: pip install -r requirements.txt")
 print("2. If wrong directory → cd to project root (where requirements.txt is)")
 print("3. If import errors → Make sure src/config.py and src/data_loader.py exist")

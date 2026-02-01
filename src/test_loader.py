@@ -20,9 +20,9 @@ print(f"Python path: {sys.path}")
 
 try:
     from src.data_loader import NYCParkingDataLoader, display_summary
-    print("✅ Successfully imported data_loader")
+    print("Successfully imported data_loader")
 except ImportError as e:
-    print(f"❌ Failed to import data_loader: {e}")
+    print(f"Failed to import data_loader: {e}")
     print(f"Current directory: {os.getcwd()}")
     print(f"Looking for src in: {Path(__file__).parent.parent}")
     sys.exit(1)
@@ -46,17 +46,17 @@ def test_api_connection():
         df = loader.load_sample(limit=10)
         
         if df is not None and len(df) > 0:
-            print("✅ API connection successful!")
+            print("API connection successful!")
             print(f"   Loaded {len(df)} records")
             print(f"   Columns: {list(df.columns[:5])}...")
             sys.stdout.flush()
             return True
         else:
-            print("❌ API connection failed - no data returned")
+            print("API connection failed - no data returned")
             sys.stdout.flush()
             return False
     except Exception as e:
-        print(f"❌ API connection failed with error: {e}")
+        print(f"API connection failed with error: {e}")
         import traceback
         traceback.print_exc()
         sys.stdout.flush()
@@ -78,11 +78,11 @@ def test_data_structure():
         df = loader.load_sample(limit=100)
         
         if df is None:
-            print("❌ Failed to load data")
+            print("Failed to load data")
             sys.stdout.flush()
             return False
         
-        print(f"✅ Loaded {len(df):,} records")
+        print(f"Loaded {len(df):,} records")
         sys.stdout.flush()
         
         # Check for expected columns (from config.ESSENTIAL_FIELDS)
@@ -90,21 +90,21 @@ def test_data_structure():
         missing_columns = [col for col in expected_columns if col not in df.columns]
         
         if missing_columns:
-            print(f"⚠️  Missing expected columns: {missing_columns}")
+            print(f"Missing expected columns: {missing_columns}")
             print(f"   Available columns: {list(df.columns)}")
         else:
-            print("✅ All expected columns present")
+            print("All expected columns present")
         
         sys.stdout.flush()
         
         # Check for data
-        print(f"\n📊 Sample data:")
+        print(f"\nSample data:")
         print(df.head(3))
         sys.stdout.flush()
         
         return True
     except Exception as e:
-        print(f"❌ Data structure test failed: {e}")
+        print(f"Data structure test failed: {e}")
         import traceback
         traceback.print_exc()
         sys.stdout.flush()
@@ -130,20 +130,20 @@ def test_date_filtering():
         )
         
         if df is None or len(df) == 0:
-            print("⚠️  No data returned for date range")
+            print("No data returned for date range")
             sys.stdout.flush()
             return False
         
         # Convert and check dates
         df['issue_date'] = pd.to_datetime(df['issue_date'])
-        print(f"✅ Date filtering works")
+        print(f"Date filtering works")
         print(f"   Records: {len(df)}")
         print(f"   Date range: {df['issue_date'].min()} to {df['issue_date'].max()}")
         sys.stdout.flush()
         
         return True
     except Exception as e:
-        print(f"❌ Date filtering test failed: {e}")
+        print(f"Date filtering test failed: {e}")
         import traceback
         traceback.print_exc()
         sys.stdout.flush()
@@ -165,20 +165,20 @@ def test_borough_filtering():
         df = loader.load_by_borough("NY", limit=100)
         
         if df is None or len(df) == 0:
-            print("⚠️  No data returned for Manhattan")
+            print("No data returned for Manhattan")
             sys.stdout.flush()
             return False
         
         if 'county' in df.columns:
             unique_boroughs = df['county'].unique()
-            print(f"✅ Borough filtering works")
+            print(f"Borough filtering works")
             print(f"   Counties in data: {unique_boroughs}")
             print(f"   Records: {len(df)}")
             sys.stdout.flush()
         
         return True
     except Exception as e:
-        print(f"❌ Borough filtering test failed: {e}")
+        print(f"Borough filtering test failed: {e}")
         import traceback
         traceback.print_exc()
         sys.stdout.flush()
@@ -187,9 +187,9 @@ def test_borough_filtering():
 
 def run_all_tests():
     """Run all tests"""
-    print("\n" + "🔬"*30)
+    print("\n" + "="*60)
     print("NYC PARKING DATA LOADER - TEST SUITE")
-    print("🔬"*30 + "\n")
+    print("="*60 + "\n")
     sys.stdout.flush()
     
     tests = [
@@ -207,7 +207,7 @@ def run_all_tests():
             result = test_func()
             results.append((test_name, result))
         except Exception as e:
-            print(f"❌ {test_name} failed with error: {e}")
+            print(f"{test_name} failed with error: {e}")
             import traceback
             traceback.print_exc()
             sys.stdout.flush()
@@ -223,16 +223,16 @@ def run_all_tests():
     total = len(results)
     
     for test_name, result in results:
-        status = "✅ PASS" if result else "❌ FAIL"
+        status = "PASS" if result else "FAIL"
         print(f"{status}: {test_name}")
     
     print(f"\n{'='*60}")
     print(f"Results: {passed}/{total} tests passed")
     
     if passed == total:
-        print("🎉 All tests passed! Ready to commit.")
+        print("All tests passed! Ready to commit.")
     else:
-        print("⚠️  Some tests failed. Check configuration and API access.")
+        print("Some tests failed. Check configuration and API access.")
     
     print("="*60 + "\n")
     sys.stdout.flush()
@@ -250,7 +250,7 @@ if __name__ == "__main__":
         success = run_all_tests()
         sys.exit(0 if success else 1)
     except Exception as e:
-        print(f"\n❌ Fatal error: {e}")
+        print(f"\nFatal error: {e}")
         import traceback
         traceback.print_exc()
         sys.stdout.flush()

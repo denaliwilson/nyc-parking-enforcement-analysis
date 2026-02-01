@@ -57,6 +57,6 @@ ESSENTIAL_FIELDS = [
 # Output file naming
 OUTPUT_FILE_PREFIX = "nyc_parking"
 
-print(f"✓ Configuration loaded")
+print(f"Configuration loaded")
 print(f"  Project root: {PROJECT_ROOT}")
 print(f"  API Token: {'Set' if APP_TOKEN else 'Not set (using default rate limits)'}")
