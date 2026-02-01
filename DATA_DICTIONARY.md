@@ -126,10 +126,10 @@ This document describes all fields in the NYC Parking Citations dataset after lo
 
 ## Field Descriptions by Use Case
 
-### For GIS/Mapping Analysis
-- `county` - Geographic region
+### For Borough-Level Summaries
+- `county` - Borough/county code (standardized to full names during cleaning)
+- `issue_date` - Temporal dimension for aggregation
 - `plate_masked` - Vehicle identifier (masked for privacy)
-- `issue_date` - Temporal dimension
 
 ### For Enforcement Pattern Analysis
 - `violation` - Type of violation committed

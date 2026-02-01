@@ -19,10 +19,6 @@ nyc-parking-enforcement-analysis/
 │   │   ├── parking_cleaned_764_records_20260201_151917.csv
 │   │   └── *.csv                   # Additional cleaned files
 │   │
-│   ├── geospatial/                 # Geographic reference data
-│   │   ├── boroughs.geojson        # NYC borough boundaries (if available)
-│   │   └── [other spatial files]
-│   │
 │   └── dof_parking_camera_violations.schema.json
 │       # API schema documentation from NYC Open Data
 │
@@ -53,9 +49,6 @@ nyc-parking-enforcement-analysis/
 │       └── visualizer.py           # (planned) Visualization functions
 │
 ├── outputs/                        # Analysis outputs and results
-│   ├── maps/                       # Generated maps and geographic visualizations
-│   │   └── [future map files]
-│   │
 │   ├── reports/                    # Analysis reports and summaries
 │   │   └── [future report files]
 │   │
@@ -103,11 +96,6 @@ Stores all project data organized by processing stage.
   - Deduplicated and validated
   - Use this for all analysis work
 
-- **`geospatial/`** - Geographic reference data
-  - Borough boundaries, street networks, etc.
-  - Used for mapping and spatial analysis
-  - GeoJSON or Shapefile format
-
 ### `/src` - Source Code
 Python modules and scripts for the project.
 
@@ -130,16 +118,12 @@ Python modules and scripts for the project.
 Contains all generated analysis outputs.
 
 **Subdirectories:**
-- **`maps/`** - Cartographic outputs (GIS visualizations)
 - **`reports/`** - Narrative analysis reports
 - **`figures/`** - Charts, graphs, and statistical plots
 
 **Organization Tip:** Name outputs with dates/versions:
 ```
 outputs/
-├── maps/
-│   ├── violations_by_borough_20260201.html
-│   └── heatmap_daily_pattern_20260201.png
 ├── reports/
 │   └── quarterly_analysis_q1_2026.pdf
 └── figures/
@@ -159,8 +143,8 @@ Jupyter notebooks for exploratory data analysis.
 ```
 notebooks/
 ├── 01_data_exploration.ipynb
-├── 02_violation_patterns.ipynb
-├── 03_geographic_analysis.ipynb
+├── 02_temporal_patterns.ipynb
+├── 03_violation_distribution.ipynb
 └── 04_financial_impact.ipynb
 ```
 
@@ -192,8 +176,8 @@ notebooks/
                    │
          ┌─────────┴──────────┐
          v                    v
-    Analysis              Visualization
-  (*.ipynb)             (outputs/maps/)
+        Analysis              Visualization
+    (*.ipynb)           (outputs/figures/)
          │                    │
          └─────────┬──────────┘
                    v
@@ -223,7 +207,7 @@ Example: violations_by_borough_20260201.html
 
 Parts:
 - {analysis}: what analysis was done
-- {scope}: geographic or temporal scope
+- {scope}: temporal or categorical scope
 - {date}: YYYYMMDD
 - {ext}: file extension (html, png, pdf)
 ```

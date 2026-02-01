@@ -182,7 +182,6 @@ nyc-parking-enforcement-analysis/
 │   │   └── *.csv
 │   ├── processed/                  # Cleaned/processed data
 │   │   └── parking_cleaned_*.csv
-│   ├── geospatial/                 # Geographic data
 │   └── dof_parking_camera_violations.schema.json
 ├── src/
 │   ├── config.py                   # Configuration settings
@@ -192,7 +191,6 @@ nyc-parking-enforcement-analysis/
 │   ├── diagnostic.py               # System diagnostic
 │   └── __pycache__/                # Python cache (auto-generated)
 ├── outputs/
-│   ├── maps/                       # Generated map files
 │   ├── reports/                    # Analysis reports
 │   └── figures/                    # Charts and visualizations
 ├── notebooks/                      # Jupyter notebooks
@@ -219,11 +217,10 @@ nyc-parking-enforcement-analysis/
 ### Data Files
 - **data/raw/** - Raw CSV files downloaded from API (not cleaned)
 - **data/processed/** - Clean CSV files ready for analysis
-- **data/geospatial/** - Geographic reference files
 - **data/*.schema.json** - API schema documentation
 
 ### Output Directories
-- **outputs/maps/** - Generated geographic visualizations
+- **outputs/figures/** - Charts and visualizations
 - **outputs/reports/** - Analysis reports and summaries
 - **notebooks/** - Jupyter notebooks for exploratory analysis
 

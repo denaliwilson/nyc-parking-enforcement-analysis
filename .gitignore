@@ -45,8 +45,6 @@ config_local.py
 data/raw/*.csv
 data/raw/*.json
 data/processed/*.csv
-data/geospatial/*.shp
-data/geospatial/*.geojson
 *.parquet
 *.h5
 *.hdf5

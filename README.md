@@ -1,10 +1,10 @@
-# NYC Parking Citations GIS Analysis
+# NYC Parking Citations Temporal Analysis
 
-A comprehensive geospatial and data analysis project exploring patterns in New York City parking violations using the NYC Open Data API.
+A data analysis project focused on temporal patterns in New York City parking violations using the NYC Open Data API.
 
 ## Project Overview
 
-This project analyzes millions of parking citations issued in New York City to uncover spatial, temporal, and behavioral patterns in parking enforcement. By leveraging GIS techniques and data science methodologies, this analysis provides insights into urban parking behavior and enforcement strategies.
+This project analyzes millions of parking citations issued in New York City to uncover temporal and behavioral patterns in parking enforcement. The analysis emphasizes time-based trends, violation types, and borough-level summaries.
 
 ## Dataset
 
@@ -15,11 +15,11 @@ This project analyzes millions of parking citations issued in New York City to u
 - **API Endpoint**: `https://data.cityofnewyork.us/resource/nc67-uf89.json`
 
 ### Key Variables
-- Location data (street names, precincts, boroughs)
-- Violation types and codes
 - Temporal information (date, time)
+- Violation types and descriptions
 - Vehicle characteristics
-- Fine amounts
+- Fine amounts and reductions
+- Borough/county (aggregate only)
 
 ## Technologies Used
 
@@ -27,11 +27,6 @@ This project analyzes millions of parking citations issued in New York City to u
 - Python 3.9+
 - Pandas, NumPy for data manipulation
 - Jupyter Notebooks for analysis
-
-**Geospatial Analysis**
-- GeoPandas for spatial operations
-- Shapely for geometric operations
-- Folium/Plotly for interactive maps
 
 **Visualization**
 - Matplotlib, Seaborn for static plots
@@ -72,7 +67,7 @@ pip install -r requirements.txt
 
 4. **Set up directories**
 ```bash
-mkdir -p data/{raw,processed,geospatial} outputs/{maps,reports}
+mkdir -p data/{raw,processed} outputs/{figures,reports}
 ```
 
 5. **(Optional) Get API token**
@@ -98,18 +93,16 @@ jupyter notebook 01_data_exploration.ipynb
 nyc-parking-analysis/
 ├── data/
 │   ├── raw/                    # Raw API responses
-│   ├── processed/              # Cleaned datasets
-│   └── geospatial/             # Shapefiles, GeoJSON
+│   └── processed/              # Cleaned datasets
 ├── notebooks/
 │   ├── 01_data_exploration.ipynb
-│   ├── 02_spatial_analysis.ipynb
+│   ├── 02_temporal_analysis.ipynb
 │   └── 03_visualization.ipynb
 ├── src/
 │   ├── data_fetcher.py         # API interaction
-│   ├── data_cleaner.py         # Data preprocessing
-│   └── gis_utils.py            # GIS operations
+│   └── data_cleaner.py         # Data preprocessing
 ├── outputs/
-│   ├── maps/                   # Generated maps
+│   ├── figures/                # Charts and graphs
 │   └── reports/                # Analysis reports
 ├── requirements.txt
 ├── README.md
@@ -124,16 +117,14 @@ nyc-parking-analysis/
 - [ ] Borough-level comparisons
 - [ ] Violation type distribution
 
-### Phase 2: Geospatial Analysis
-- [ ] Citation hotspot mapping (kernel density estimation)
-- [ ] Spatial clustering (DBSCAN)
-- [ ] Precinct-level analysis
-- [ ] Street network integration
+### Phase 2: Temporal and Categorical Analysis
+- [ ] Time-of-day and day-of-week patterns
+- [ ] Seasonal and year-over-year trends
+- [ ] Agency and violation category comparisons
 
 ### Phase 3: Advanced Analytics
-- [ ] Predictive modeling for high-violation zones
 - [ ] Time series forecasting
-- [ ] Socioeconomic correlation analysis
+- [ ] Violation type clustering
 - [ ] Interactive dashboard development
 
 ## Key Findings

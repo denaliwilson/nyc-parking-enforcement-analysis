@@ -22,7 +22,7 @@ This dataset contains parking violations issued by NYC parking enforcement agent
 - Vehicle information (plate, state, license type)
 - Citation details (summons number, issue date, violation type)
 - Penalty information (fine amount, reductions)
-- Geographic information (borough/county)
+- Geographic information at the borough/county level
 - Agency information (issuing agency)
 
 **Dataset Size:** Millions of records  
@@ -199,6 +199,8 @@ For enrichment and context, these related datasets are available:
 | Street Segments | 44jf-dvmh | NYC street network for GIS |
 | NYC Boroughs | n8v6-gdp6 | Borough boundaries and information |
 
+Note: These related datasets are optional and not used in the current workflow.
+
 ### How to Use Other Datasets
 
 Similar API structure works for all Socrata datasets:
@@ -245,10 +247,9 @@ https://data.cityofnewyork.us/resource/k2np-d7i3.json?$limit=1000
 - **Purpose:** Documents field definitions from NYC Open Data
 - **Contains:** Field types, valid values, descriptions
 
-### Geographic Data
-- **Location:** `data/geospatial/`
-- **Purpose:** Geographic reference data for mapping
-- **Example Use:** Plotting violations on maps by location
+### Optional Enrichment (Not Used)
+- This project focuses on temporal analysis and summary statistics.
+- If you later add external reference datasets, store them in a separate folder and document them explicitly.
 
 ---
 
