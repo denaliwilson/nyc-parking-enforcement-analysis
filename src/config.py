@@ -12,9 +12,11 @@ RAW_DATA_DIR = DATA_DIR / "raw"
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
 GEOSPATIAL_DATA_DIR = DATA_DIR / "geospatial"
 OUTPUTS_DIR = PROJECT_ROOT / "outputs"
+REPORTS_DIR = OUTPUTS_DIR / "reports"
+FIGURES_DIR = OUTPUTS_DIR / "figures"
 
 # Create directories if they don't exist
-for directory in [RAW_DATA_DIR, PROCESSED_DATA_DIR, GEOSPATIAL_DATA_DIR, OUTPUTS_DIR]:
+for directory in [RAW_DATA_DIR, PROCESSED_DATA_DIR, GEOSPATIAL_DATA_DIR, OUTPUTS_DIR, REPORTS_DIR, FIGURES_DIR]:
     directory.mkdir(parents=True, exist_ok=True)
 
 # NYC Open Data API Configuration

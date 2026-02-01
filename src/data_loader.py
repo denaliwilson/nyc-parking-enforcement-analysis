@@ -146,6 +146,94 @@ class NYCParkingDataLoader:
             print(" Failed to load data")
             return None
     
+    def load_by_date_range(self, start_date, end_date, limit=50000):
+        """
+        Load citations for a specific date range
+        
+        Parameters:
+        -----------
+        start_date : str
+            Start date (YYYY-MM-DD format)
+        end_date : str
+            End date (YYYY-MM-DD format)
+        limit : int
+            Maximum number of records to load (default 50,000)
+            
+        Returns:
+        --------
+        pd.DataFrame : Citation data filtered to the date range
+        """
+        print(f"\n{'='*60}")
+        print(f"Loading citations from {start_date} to {end_date}")
+        print(f"{'='*60}\n")
+        
+        # Extract year from date range to narrow API query
+        start_year = start_date.split('-')[0]
+        end_year = end_date.split('-')[0]
+        
+        # Query by year only (API stores dates as text, complex date filtering doesn't work well)
+        # Then filter precisely in pandas after loading
+        if start_year == end_year:
+            where_clause = f"issue_date like '%/{start_year}'"
+        else:
+            # Multiple years - use OR
+            years = range(int(start_year), int(end_year) + 1)
+            year_conditions = [f"issue_date like '%/{year}'" for year in years]
+            where_clause = " OR ".join(year_conditions)
+        
+        params = {
+            '$limit': min(limit, 50000),
+            '$where': where_clause,
+            '$order': 'issue_date DESC'
+        }
+        
+        if ESSENTIAL_FIELDS:
+            params['$select'] = ','.join(ESSENTIAL_FIELDS)
+        
+        print(f" Fetching data...")
+        print(f" Filtering dates: {start_date} to {end_date}")
+        start_time = time.time()
+        
+        data = self._make_request(params)
+        
+        if data:
+            df = pd.DataFrame(data)
+            
+            # Convert issue_date to datetime for precise filtering
+            df['issue_date_parsed'] = pd.to_datetime(df['issue_date'], format='%m/%d/%Y', errors='coerce')
+            
+            # Filter to exact date range
+            start_dt = pd.to_datetime(start_date)
+            end_dt = pd.to_datetime(end_date)
+            df_filtered = df[(df['issue_date_parsed'] >= start_dt) & (df['issue_date_parsed'] <= end_dt)].copy()
+            
+            # Drop the temporary parsing column
+            df_filtered = df_filtered.drop(columns=['issue_date_parsed'])
+            
+            elapsed = time.time() - start_time
+            print(f" Successfully loaded {len(df):,} records, filtered to {len(df_filtered):,} in {elapsed:.2f}s")
+            return df_filtered
+        else:
+            print(" Failed to load data")
+            return None
+
+    def load_by_day(self, date, limit=50000):
+        """
+        Load citations for a single day
+
+        Parameters:
+        -----------
+        date : str
+            Date in YYYY-MM-DD format
+        limit : int
+            Maximum number of records to load (default 50,000)
+
+        Returns:
+        --------
+        pd.DataFrame : Citation data for that day
+        """
+        return self.load_by_date_range(date, date, limit=limit)
+    
     def load_by_borough(self, borough, limit=DEFAULT_LIMIT):
         """
         Load citations for a specific borough
