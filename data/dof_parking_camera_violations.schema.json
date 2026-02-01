@@ -1,0 +1,176 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DOF Open Parking and Camera Violations",
+  "type": "object",
+  "properties": {
+    "Plate": {
+      "type": "string",
+      "description": ""
+    },
+    "State": {
+      "type": "string",
+      "description": ""
+    },
+    "License Type": {
+      "type": "string",
+      "description": "",
+      "enum": [
+        "TOW",
+        "LMB",
+        "NYA",
+        "ATV",
+        "NLM",
+        "CSP",
+        "HOU",
+        "OMT",
+        "OMR",
+        "ATD",
+        "FPW",
+        "999",
+        "PHS",
+        "VPL",
+        "HAC",
+        "OMF",
+        "GSM",
+        "HIR",
+        "CHC",
+        "SEM",
+        "FAR",
+        "TRC",
+        "RGL",
+        "CMH",
+        "AGC",
+        "WUG",
+        "TRL",
+        "AYG",
+        "THC",
+        "MCL",
+        "SPO",
+        "DLR",
+        "CME",
+        "RGC",
+        "MCD",
+        "OMV",
+        "NYS",
+        "MED",
+        "AMB",
+        "BOT",
+        "USS",
+        "ORG",
+        "AGR",
+        "USC",
+        "MOT",
+        "SCL",
+        "NYC",
+        "ORM",
+        "HIS",
+        "SOS",
+        "CBS",
+        "STA",
+        "ARG",
+        "PAS",
+        "TRA",
+        "GSC",
+        "APP",
+        "HSM",
+        "OMO",
+        "PPH",
+        "IRP",
+        "GAC",
+        "ITP",
+        "STG",
+        "COM",
+        "LUA",
+        "LTR",
+        "ORC",
+        "SPC",
+        "OMS",
+        "SUP",
+        "CMB",
+        "JSC",
+        "VAS",
+        "PSD",
+        "JWV",
+        "LOC",
+        "BOB",
+        "LMA",
+        "CLG",
+        "JCL",
+        "SRN",
+        "HAM",
+        "LMC",
+        "SRF",
+        "JCA",
+        "OML",
+        "CCK"
+      ]
+    },
+    "Summons Number": {
+      "type": "number",
+      "description": ""
+    },
+    "Issue Date": {
+      "type": "string",
+      "description": ""
+    },
+    "Violation Time": {
+      "type": "string",
+      "description": ""
+    },
+    "Violation": {
+      "type": "string",
+      "description": ""
+    },
+    "Judgment Entry Date": {
+      "type": "string",
+      "description": ""
+    },
+    "Fine Amount": {
+      "type": "string",
+      "description": ""
+    },
+    "Penalty Amount": {
+      "type": "string",
+      "description": ""
+    },
+    "Interest Amount": {
+      "type": "string",
+      "description": ""
+    },
+    "Reduction Amount": {
+      "type": "string",
+      "description": ""
+    },
+    "Payment Amount": {
+      "type": "string",
+      "description": ""
+    },
+    "Amount Due": {
+      "type": "string",
+      "description": ""
+    },
+    "Precinct": {
+      "type": "string",
+      "description": ""
+    },
+    "County": {
+      "type": "string",
+      "description": ""
+    },
+    "Issuing Agency": {
+      "type": "string",
+      "description": "",
+      "enum": [
+        "ISSUING                      ISSUING AGENCY\nAGENCY ID                DESCRIPTION\nA                                   PORT AUTHORITY\nB                                   TRIBOROUGH BRIDGE AND TUNNEL POLICE\nC                                   CON RAIL\nD                                   DEPARTMENT OF BUSINESS SERVICES\nE                                    BOARD OF ESTIMATE\nF                                    FIRE DEPARTMENT\nG                                   TAXI AND LIMOUSINE COMMISSION\nH                                   HOUSING AUTHORITY\nI                                    STATEN ISLAND RAPID TRANSIT POLICE\nJ                                   AMTRAK RAILROAD POLICE\nK                                  PARKS DEPARTMENT\nL                                    LONG ISLAND RAILROAD\nM                                  TRANSIT AUTHORITY\nN                                  NYS PARKS POLICE\nO                                  NYS COURT OFFICERS\nP                                   POLICE DEPARTMENT\nQ                                  DEPARTMENT OF CORRECTION\nR                                   NYC TRANSIT AUTHORITY MANAGERS\nS                                   DEPARTMENT OF SANITATION\nT                                   TRAFFIC\nU                                  PARKING CONTROL UNIT\nV                                  DEPARTMENT OF TRANSPORTATION\nW                                 HEALTH DEPARTMENT POLICE\nX                                   OTHER/UNKNOWN AGENCIES\nY                                   HEALTH AND HOSPITAL CORP. POLICE\nZ                                   METRO NORTH RAILROAD POLICE\n1                                  NYS OFFICE OF MENTAL HEALTH POLICE\n2                                  O M R D D\n3                                  ROOSEVELT ISLAND SECURITY\n4                                  SEA GATE ASSOCIATION POLICE\n5                                  SNUG HARBOR CULTURAL CENTER RANGERS\n6                                  WATERFRONT COMMISSION OF NY HARBOR\n7                                  SUNY MARITIME COLLEGE\n 9                                 NYC OFFICE OF THE SHERIFF"
+      ]
+    },
+    "Violation Status": {
+      "type": "string",
+      "description": ""
+    },
+    "Summons Image": {
+      "type": "string",
+      "description": ""
+    }
+  }
+}
