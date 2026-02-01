@@ -167,19 +167,26 @@ class NYCParkingDataLoader:
         print(f"Loading citations from {start_date} to {end_date}")
         print(f"{'='*60}\n")
         
-        # Extract year from date range to narrow API query
-        start_year = start_date.split('-')[0]
-        end_year = end_date.split('-')[0]
-        
-        # Query by year only (API stores dates as text, complex date filtering doesn't work well)
-        # Then filter precisely in pandas after loading
-        if start_year == end_year:
-            where_clause = f"issue_date like '%/{start_year}'"
+        # For single-day queries, use the exact date format MM/DD/YYYY
+        # This is much more efficient than filtering a whole year
+        if start_date == end_date:
+            # Convert YYYY-MM-DD to MM/DD/YYYY
+            date_parts = start_date.split('-')
+            mm_dd_yyyy = f"{date_parts[1]}/{date_parts[2]}/{date_parts[0]}"
+            # Use exact match for single day
+            where_clause = f"issue_date = '{mm_dd_yyyy}'"
         else:
-            # Multiple years - use OR
-            years = range(int(start_year), int(end_year) + 1)
-            year_conditions = [f"issue_date like '%/{year}'" for year in years]
-            where_clause = " OR ".join(year_conditions)
+            # For ranges, use year-based filtering (API limitation)
+            start_year = start_date.split('-')[0]
+            end_year = end_date.split('-')[0]
+            
+            if start_year == end_year:
+                where_clause = f"issue_date like '%/{start_year}'"
+            else:
+                # Multiple years - use OR
+                years = range(int(start_year), int(end_year) + 1)
+                year_conditions = [f"issue_date like '%/{year}'" for year in years]
+                where_clause = " OR ".join(year_conditions)
         
         params = {
             '$limit': min(limit, 50000),
@@ -380,7 +387,14 @@ def save_data(df, filename=None, output_dir=None):
     filepath = output_dir / filename
     
     try:
-        df.to_csv(filepath, index=False)
+        # PERFORMANCE: Use chunked writing for large files (>50MB)
+        size_mb_estimate = (len(df) * df.memory_usage(deep=True).sum()) / (1024 * 1024)
+        if size_mb_estimate > 50:
+            # Write in chunks to reduce memory overhead
+            chunksize = max(5000, len(df) // 10)  # ~10 chunks or 5k rows min
+            df.to_csv(filepath, index=False, chunksize=chunksize)
+        else:
+            df.to_csv(filepath, index=False)
         size_mb = filepath.stat().st_size / (1024 * 1024)
         print(f"\n Data saved to: {filepath}")
         print(f"   File size: {size_mb:.2f} MB")

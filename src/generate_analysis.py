@@ -73,7 +73,7 @@ def fetch_data_for_day(date_str):
             return None
         
         # Save raw data
-        raw_filename = f"parking_raw_{date_str}_{len(df)}_records_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        raw_filename = f"parking_raw_citations_{date_str}_{len(df)}-records_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
         raw_filepath = RAW_DATA_DIR / raw_filename
         df.to_csv(raw_filepath, index=False)
         
@@ -87,7 +87,7 @@ def fetch_data_for_day(date_str):
         return None
 
 
-def clean_data(raw_filepath):
+def clean_data(raw_filepath, date_str=None):
     """Clean the raw data file."""
     print("\n" + "=" * 60)
     print("CLEANING DATA")
@@ -100,8 +100,11 @@ def clean_data(raw_filepath):
         print("\nData cleaning failed")
         return None
     
-    # Save cleaned data
-    cleaned_filepath = cleaner.save_cleaned_data()
+    # Save cleaned data with date in filename
+    cleaned_filepath = cleaner.save_cleaned_data(date_str=date_str)
+    
+    # Save removal report with date in filename
+    cleaner.save_removal_report(date_str=date_str)
     
     return cleaned_filepath, cleaner
 
@@ -116,7 +119,7 @@ def generate_analysis_report(cleaned_filepath, period_name, cleaner):
     
     # Prepare report
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    report_filename = f"analysis_report_{period_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+    report_filename = f"analysis_report_citations_{period_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
     report_filepath = REPORTS_DIR / report_filename
     
     html = f"""
@@ -428,8 +431,8 @@ def main():
         if raw_filepath is None:
             continue
         
-        # Clean data
-        result = clean_data(raw_filepath)
+        # Clean data with date for better filenames
+        result = clean_data(raw_filepath, date_str=date_str)
         if result is None:
             continue
         
