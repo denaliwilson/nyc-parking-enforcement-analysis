@@ -20,6 +20,10 @@ warnings.filterwarnings('ignore')
 sys.path.append(str(Path(__file__).parent.parent))
 from src.config import RAW_DATA_DIR, PROCESSED_DATA_DIR
 
+# Ensure outputs/reports directory exists
+REPORTS_DIR = Path(__file__).parent.parent / 'outputs' / 'reports'
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
 
 class ParkingDataCleaner:
     """
@@ -29,6 +33,7 @@ class ParkingDataCleaner:
     def __init__(self):
         self.raw_df = None
         self.clean_df = None
+        self.removed_rows = []  # Track all removed rows with reasons
         self.cleaning_report = {
             'initial_records': 0,
             'final_records': 0,
@@ -120,12 +125,25 @@ class ParkingDataCleaner:
         print("Processing issue_date...")
         df['issue_date'] = pd.to_datetime(df['issue_date'], errors='coerce')
         
-        # Check for invalid dates
-        invalid_dates = df['issue_date'].isnull().sum()
-        if invalid_dates > 0:
-            print(f"   Found {invalid_dates:,} invalid dates - will be removed")
-            df = df[df['issue_date'].notna()]
-            self.cleaning_report['invalid_dates_removed'] = invalid_dates
+        # Check for invalid dates and track them
+        invalid_mask = df['issue_date'].isnull()
+        invalid_count = invalid_mask.sum()
+        
+        if invalid_count > 0:
+            print(f"   Found {invalid_count:,} invalid dates - will be removed")
+            
+            # Track removed rows
+            for idx, row in self.raw_df[invalid_mask].iterrows():
+                self.removed_rows.append({
+                    'index': idx,
+                    'summons_number': row.get('summons_number', 'N/A'),
+                    'issue_date_original': row.get('issue_date', 'N/A'),
+                    'reason': 'Invalid date format in issue_date',
+                    'step': 'clean_dates'
+                })
+            
+            df = df[~invalid_mask]
+            self.cleaning_report['invalid_dates_removed'] = invalid_count
         
         # Extract date components
         print("   Extracting date components...")
@@ -337,12 +355,24 @@ class ParkingDataCleaner:
         initial_count = len(df)
         
         # Check for duplicates based on summons_number
-        duplicates = df.duplicated(subset=['summons_number'], keep='first').sum()
+        duplicate_mask = df.duplicated(subset=['summons_number'], keep='first')
+        duplicates = duplicate_mask.sum()
         
         if duplicates > 0:
             print(f"Found {duplicates:,} duplicate summons numbers")
             print(f"   Keeping first occurrence, removing {duplicates:,} records")
-            df = df.drop_duplicates(subset=['summons_number'], keep='first')
+            
+            # Track removed rows
+            for idx, row in df[duplicate_mask].iterrows():
+                self.removed_rows.append({
+                    'index': idx,
+                    'summons_number': row.get('summons_number', 'N/A'),
+                    'issue_date_original': row.get('issue_date', 'N/A'),
+                    'reason': 'Duplicate summons_number (keeping first occurrence)',
+                    'step': 'remove_duplicates'
+                })
+            
+            df = df[~duplicate_mask]
             self.cleaning_report['duplicates_removed'] = duplicates
         else:
             print("No duplicates found")
@@ -397,6 +427,22 @@ class ParkingDataCleaner:
         critical_columns = ['summons_number', 'issue_date', 'county']
         
         before_count = len(df)
+        
+        # Find rows with missing critical values
+        missing_critical_mask = df[critical_columns].isnull().any(axis=1)
+        
+        if missing_critical_mask.sum() > 0:
+            # Track removed rows
+            for idx, row in df[missing_critical_mask].iterrows():
+                missing_fields = [col for col in critical_columns if pd.isnull(row[col])]
+                self.removed_rows.append({
+                    'index': idx,
+                    'summons_number': row.get('summons_number', 'N/A'),
+                    'issue_date_original': row.get('issue_date', 'N/A'),
+                    'reason': f'Missing critical field(s): {", ".join(missing_fields)}',
+                    'step': 'finalize_cleaning'
+                })
+        
         df = df.dropna(subset=critical_columns)
         after_count = len(df)
         
@@ -458,6 +504,246 @@ class ParkingDataCleaner:
         print(f"Final records:          {report['final_records']:,}")
         print(f"\nData retention:         {(report['final_records']/report['initial_records']*100):.2f}%")
     
+    def save_removal_report(self, filename=None):
+        """Save detailed removal report to outputs/reports"""
+        if filename is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"removal_report_{timestamp}.html"
+        
+        filepath = REPORTS_DIR / filename
+        
+        # Create HTML report
+        html_content = self._generate_html_removal_report()
+        
+        try:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            
+            print(f"\nRemoval report saved:")
+            print(f"   File: {filepath}")
+            print(f"   Records in report: {len(self.removed_rows):,}")
+            
+            return filepath
+        except Exception as e:
+            print(f"Error saving removal report: {e}")
+            return None
+    
+    def _generate_html_removal_report(self):
+        """Generate detailed HTML report of removed rows"""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Calculate statistics by reason
+        reason_stats = {}
+        for row in self.removed_rows:
+            reason = row['reason']
+            if reason not in reason_stats:
+                reason_stats[reason] = {'count': 0, 'step': row['step']}
+            reason_stats[reason]['count'] += 1
+        
+        # Calculate statistics by step
+        step_stats = {}
+        for row in self.removed_rows:
+            step = row['step']
+            if step not in step_stats:
+                step_stats[step] = 0
+            step_stats[step] += 1
+        
+        # Start HTML
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Cleaning Removal Report</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }}
+        .container {{
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }}
+        h1 {{
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }}
+        h2 {{
+            color: #34495e;
+            margin-top: 30px;
+            border-left: 4px solid #3498db;
+            padding-left: 10px;
+        }}
+        .summary-box {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }}
+        .stat-card {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }}
+        .stat-card.warning {{
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }}
+        .stat-card.success {{
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }}
+        .stat-value {{
+            font-size: 32px;
+            font-weight: bold;
+            margin: 10px 0;
+        }}
+        .stat-label {{
+            font-size: 14px;
+            opacity: 0.9;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }}
+        th {{
+            background-color: #3498db;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: bold;
+        }}
+        td {{
+            padding: 10px 12px;
+            border-bottom: 1px solid #ddd;
+        }}
+        tr:hover {{
+            background-color: #f8f9fa;
+        }}
+        .reason-badge {{
+            background-color: #e74c3c;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }}
+        .step-badge {{
+            background-color: #3498db;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }}
+        .footer {{
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            font-size: 12px;
+            color: #7f8c8d;
+        }}
+        .section {{
+            margin: 20px 0;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Data Cleaning Removal Report</h1>
+        <p>Generated: {timestamp}</p>
+        
+        <div class="section">
+            <h2>Overall Summary</h2>
+            <div class="summary-box">
+                <div class="stat-card success">
+                    <div class="stat-label">Initial Records</div>
+                    <div class="stat-value">{self.cleaning_report['initial_records']:,}</div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-label">Total Removed</div>
+                    <div class="stat-value">{len(self.removed_rows):,}</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-label">Final Records</div>
+                    <div class="stat-value">{self.cleaning_report['final_records']:,}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Retention Rate</div>
+                    <div class="stat-value">{(self.cleaning_report['final_records']/self.cleaning_report['initial_records']*100):.2f}%</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Removal by Cleaning Step</h2>
+            <table>
+                <tr>
+                    <th>Step</th>
+                    <th>Records Removed</th>
+                    <th>Percentage</th>
+                </tr>
+"""
+        
+        for step in sorted(step_stats.keys()):
+            count = step_stats[step]
+            pct = (count / len(self.removed_rows)) * 100 if self.removed_rows else 0
+            html += f"""
+                <tr>
+                    <td><span class="step-badge">{step}</span></td>
+                    <td>{count:,}</td>
+                    <td>{pct:.1f}%</td>
+                </tr>
+"""
+        
+        html += """
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>Removal Reasons</h2>
+            <table>
+                <tr>
+                    <th>Reason</th>
+                    <th>Count</th>
+                    <th>Percentage</th>
+                </tr>
+"""
+        
+        for reason in sorted(reason_stats.keys(), key=lambda x: reason_stats[x]['count'], reverse=True):
+            count = reason_stats[reason]['count']
+            pct = (count / len(self.removed_rows)) * 100 if self.removed_rows else 0
+            html += f"""
+                <tr>
+                    <td>{reason}</td>
+                    <td>{count:,}</td>
+                    <td>{pct:.1f}%</td>
+                </tr>
+"""
+        
+        html += f"""
+            </table>
+        </div>
+        
+        <div class="footer">
+            <p>Total removed records tracked: {len(self.removed_rows):,} out of {self.cleaning_report['initial_records']:,} initial records</p>
+            <p>Report generated: {timestamp}</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+        
+        return html
+    
     def run_full_pipeline(self, input_file):
         """Run complete cleaning pipeline"""
         print("\n" + "="*60)
@@ -483,6 +769,9 @@ class ParkingDataCleaner:
         
         # Generate report
         self.generate_cleaning_report()
+        
+        # Save removal report
+        self.save_removal_report()
         
         return clean_df
 
