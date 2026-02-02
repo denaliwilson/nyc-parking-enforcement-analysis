@@ -400,6 +400,12 @@ def generate_weekly_report(cleaned_filepath, week_name, cleaner):
     df['issue_date'] = pd.to_datetime(df['issue_date'])
     date_range = f"{df['issue_date'].min().strftime('%Y-%m-%d')} to {df['issue_date'].max().strftime('%Y-%m-%d')}"
     
+    # Identify actual days of week in the data
+    actual_days_in_data = df['day_of_week'].unique().tolist()
+    first_day = df['issue_date'].min().strftime('%A')
+    last_day = df['issue_date'].max().strftime('%A')
+    day_coverage_note = f"Data spans from {first_day} to {last_day}"
+    
     print("  Generating visualizations...")
     graphs_html = generate_graphs(df)
     print("  SUCCESS: Graphs created")
@@ -523,6 +529,7 @@ def generate_weekly_report(cleaned_filepath, week_name, cleaner):
         
         <div class="header-info">
             <strong>Period:</strong> {date_range} ({week_name})<br>
+            <strong>Coverage:</strong> {day_coverage_note}<br>
             <strong>Generated:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         </div>
         
@@ -552,7 +559,9 @@ def generate_weekly_report(cleaned_filepath, week_name, cleaner):
     
     # Day of week table
     if 'day_of_week' in df.columns:
-        html += "<h2>Day of Week Distribution</h2><table><tr><th>Day</th><th>Citations</th><th>Percentage</th><th>Avg Fine</th></tr>"
+        html += "<h2>Day of Week Distribution</h2>"
+        html += f"<p><em>Note: Data covers {first_day} through {last_day}. Days shown in standard Monday-Sunday order.</em></p>"
+        html += "<table><tr><th>Day</th><th>Citations</th><th>Percentage</th><th>Avg Fine</th></tr>"
         day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         for day in day_order:
             day_data = df[df['day_of_week'] == day]
@@ -561,6 +570,8 @@ def generate_weekly_report(cleaned_filepath, week_name, cleaner):
                 pct = (count / len(df)) * 100
                 avg_fine = day_data['fine_amount'].mean()
                 html += f"<tr><td><strong>{day}</strong></td><td>{count:,}</td><td>{pct:.1f}%</td><td>${avg_fine:.2f}</td></tr>"
+            else:
+                html += f"<tr style='background-color:#f0f0f0;'><td><strong>{day}</strong></td><td colspan='3'><em>No data for this day</em></td></tr>"
         html += "</table>"
     
     # Top violations table
