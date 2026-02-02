@@ -260,19 +260,37 @@ class ParkingDataCleaner:
         # 2. County (borough) standardization
         print(f"\nStandardizing county/borough names...")
         
-        # PITFALL: County names may be abbreviated or misspelled
+        initial_count = len(df)
+        
+        # Comprehensive borough mapping - all variations to 5 NYC boroughs
         borough_mapping = {
+            # Manhattan variations
             'MAN': 'MANHATTAN',
             'MH': 'MANHATTAN',
             'NY': 'MANHATTAN',
-            'BX': 'BRONX',
+            'MN': 'MANHATTAN',
+            'NEW YORK': 'MANHATTAN',
+            # Brooklyn variations
             'BK': 'BROOKLYN',
             'K': 'BROOKLYN',
+            'KINGS': 'BROOKLYN',
+            'KING': 'BROOKLYN',
+            # Queens variations
             'Q': 'QUEENS',
             'QN': 'QUEENS',
+            'QNS': 'QUEENS',
+            'QUEEN': 'QUEENS',
+            # Bronx (already standard)
+            'BX': 'BRONX',
+            # Staten Island variations
             'R': 'STATEN ISLAND',
             'ST': 'STATEN ISLAND',
+            'RICHMOND': 'STATEN ISLAND',
+            'RICH': 'STATEN ISLAND',
         }
+        
+        # Valid NYC boroughs only
+        VALID_BOROUGHS = ['MANHATTAN', 'BROOKLYN', 'QUEENS', 'BRONX', 'STATEN ISLAND']
         
         df['county'] = df['county'].str.upper().str.strip()
         df['county'] = df['county'].replace(borough_mapping)
@@ -285,10 +303,33 @@ class ParkingDataCleaner:
                 df.loc[mn_mask, 'county'] = 'MANHATTAN'
                 print(f"   Mapped {mn_count:,} 'MN' precinct entries to MANHATTAN")
         
-        print(f"   Borough distribution:")
+        # Remove records with invalid/non-NYC boroughs
+        invalid_borough_mask = ~df['county'].isin(VALID_BOROUGHS)
+        invalid_boroughs = invalid_borough_mask.sum()
+        
+        if invalid_boroughs > 0:
+            invalid_values = df[invalid_borough_mask]['county'].value_counts()
+            print(f"\n   Removing {invalid_boroughs:,} records with invalid borough data:")
+            for borough, count in invalid_values.head(10).items():
+                print(f"      '{borough}': {count:,}")
+            
+            # Track removed rows
+            for idx in df[invalid_borough_mask].index:
+                self.removed_rows.append({
+                    'index': idx,
+                    'reason': f"Invalid borough: {df.loc[idx, 'county']}",
+                    'step': 'clean_categorical_fields'
+                })
+            
+            df = df[~invalid_borough_mask].copy()
+            self.cleaning_report['invalid_borough_removed'] = invalid_boroughs
+        
+        print(f"\n   Valid borough distribution (NYC only):")
         for borough, count in df['county'].value_counts().items():
             pct = (count / len(df)) * 100
             print(f"      {borough:15s}: {count:6,} ({pct:5.1f}%)")
+        
+        self.raw_df = df
         
         # 3. License type
         print(f"\nLicense types:")
