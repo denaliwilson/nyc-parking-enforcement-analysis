@@ -1,4 +1,4 @@
-# NYC Parking Citations Temporal Analysis
+# NYC Parking Citations Analysis
 
 A data analysis project focused on temporal patterns in New York City parking violations using the NYC Open Data API.
 
