@@ -16,8 +16,8 @@ import pandas as pd
 # Add parent directory to path
 sys.path.append(str(Path(__file__).parent.parent))
 from src.config import RAW_DATA_DIR, PROCESSED_DATA_DIR, REPORTS_DIR
-from src.data_loader import NYCParkingDataLoader
-from src.data_cleaner import ParkingDataCleaner
+from src.data_loader import NYCParkingDataLoader, fetch_data_for_day
+from src.data_cleaner import ParkingDataCleaner, clean_data_pipeline
 
 
 def get_user_input():
@@ -53,60 +53,6 @@ def get_date_list(start_date, end_date):
     """Return list of dates (YYYY-MM-DD) between start and end, inclusive."""
     dates = pd.date_range(start=start_date, end=end_date, freq="D")
     return [d.strftime("%Y-%m-%d") for d in dates]
-
-
-def fetch_data_for_day(date_str):
-    """Fetch data from NYC API for a single day."""
-    print("\n" + "=" * 60)
-    print("FETCHING DATA FROM NYC OPEN DATA API")
-    print("=" * 60)
-    print(f"Date: {date_str}")
-    print("\nThis may take a few minutes...")
-    
-    loader = NYCParkingDataLoader()
-    
-    try:
-        df = loader.load_by_day(date_str, limit=50000)
-        
-        if df is None or len(df) == 0:
-            print(f"\nNo data found for {date_str}")
-            return None
-        
-        # Save raw data
-        raw_filename = f"parking_raw_citations_{date_str}_{len(df)}-records_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        raw_filepath = RAW_DATA_DIR / raw_filename
-        df.to_csv(raw_filepath, index=False)
-        
-        print(f"\nFetched {len(df):,} records")
-        print(f"Saved to: {raw_filepath}")
-        
-        return raw_filepath
-    
-    except Exception as e:
-        print(f"\nError fetching data: {e}")
-        return None
-
-
-def clean_data(raw_filepath, date_str=None):
-    """Clean the raw data file."""
-    print("\n" + "=" * 60)
-    print("CLEANING DATA")
-    print("=" * 60)
-    
-    cleaner = ParkingDataCleaner()
-    clean_df = cleaner.run_full_pipeline(raw_filepath)
-    
-    if clean_df is None:
-        print("\nData cleaning failed")
-        return None
-    
-    # Save cleaned data with date in filename
-    cleaned_filepath = cleaner.save_cleaned_data(date_str=date_str)
-    
-    # Save removal report with date in filename
-    cleaner.save_removal_report(date_str=date_str)
-    
-    return cleaned_filepath, cleaner
 
 
 def generate_analysis_report(cleaned_filepath, period_name, cleaner):
@@ -432,7 +378,7 @@ def main():
             continue
         
         # Clean data with date for better filenames
-        result = clean_data(raw_filepath, date_str=date_str)
+        result = clean_data_pipeline(raw_filepath, date_str=date_str)
         if result is None:
             continue
         

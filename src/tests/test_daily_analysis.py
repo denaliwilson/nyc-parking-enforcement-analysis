@@ -8,60 +8,8 @@ import pandas as pd
 # Add parent directory to path
 sys.path.append(str(Path(__file__).parent.parent))
 from src.config import RAW_DATA_DIR, PROCESSED_DATA_DIR, REPORTS_DIR
-from src.data_loader import NYCParkingDataLoader
-from src.data_cleaner import ParkingDataCleaner
-
-
-def fetch_data_for_day(date_str):
-    """Fetch data from NYC API for a single day."""
-    print(f"\n{'='*60}")
-    print(f"Fetching data for {date_str}")
-    print(f"{'='*60}")
-    
-    loader = NYCParkingDataLoader()
-    
-    try:
-        df = loader.load_by_day(date_str, limit=50000)
-        
-        if df is None or len(df) == 0:
-            print(f"\nNo data found for {date_str}")
-            return None
-        
-        # Save raw data
-        raw_filename = f"parking_raw_citations_{date_str}_{len(df)}-records_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        raw_filepath = RAW_DATA_DIR / raw_filename
-        df.to_csv(raw_filepath, index=False)
-        
-        print(f"\nFetched {len(df):,} records")
-        print(f"Saved to: {raw_filepath}")
-        
-        return raw_filepath
-    
-    except Exception as e:
-        print(f"\nError fetching data: {e}")
-        return None
-
-
-def clean_data(raw_filepath, date_str=None):
-    """Clean the raw data file."""
-    print(f"\n{'='*60}")
-    print("Cleaning data")
-    print(f"{'='*60}")
-    
-    cleaner = ParkingDataCleaner()
-    clean_df = cleaner.run_full_pipeline(raw_filepath)
-    
-    if clean_df is None:
-        print("\nData cleaning failed")
-        return None
-    
-    # Save cleaned data with date in filename
-    cleaned_filepath = cleaner.save_cleaned_data(date_str=date_str)
-    
-    # Save removal report with date in filename
-    cleaner.save_removal_report(date_str=date_str)
-    
-    return cleaned_filepath, cleaner
+from src.data_loader import NYCParkingDataLoader, fetch_data_for_day
+from src.data_cleaner import ParkingDataCleaner, clean_data_pipeline
 
 
 def main():
@@ -91,7 +39,7 @@ def main():
             continue
         
         # Clean data with date for better filenames
-        result = clean_data(raw_filepath, date_str=date_str)
+        result = clean_data_pipeline(raw_filepath, date_str=date_str)
         if result is None:
             print(f"Skipping {date_str} - cleaning failed")
             continue

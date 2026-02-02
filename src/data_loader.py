@@ -498,5 +498,51 @@ def main():
     print("="*60 + "\n")
 
 
+def fetch_data_for_day(date_str, limit=50000):
+    """
+    Utility function to fetch and save data for a single day.
+    Used by generate_analysis.py and test scripts.
+    
+    Parameters:
+    -----------
+    date_str : str
+        Date in YYYY-MM-DD format
+    limit : int
+        Maximum records to fetch (default 50000)
+    
+    Returns:
+    --------
+    Path : Filepath to saved raw data, or None if failed
+    """
+    print("\n" + "=" * 60)
+    print("FETCHING DATA FROM NYC OPEN DATA API")
+    print("=" * 60)
+    print(f"Date: {date_str}")
+    print("\nThis may take a few minutes...")
+    
+    loader = NYCParkingDataLoader()
+    
+    try:
+        df = loader.load_by_day(date_str, limit=limit)
+        
+        if df is None or len(df) == 0:
+            print(f"\nNo data found for {date_str}")
+            return None
+        
+        # Save raw data
+        raw_filename = f"parking_raw_citations_{date_str}_{len(df)}-records_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        raw_filepath = RAW_DATA_DIR / raw_filename
+        df.to_csv(raw_filepath, index=False)
+        
+        print(f"\nFetched {len(df):,} records")
+        print(f"Saved to: {raw_filepath}")
+        
+        return raw_filepath
+    
+    except Exception as e:
+        print(f"\nError fetching data: {e}")
+        return None
+
+
 if __name__ == "__main__":
     main()

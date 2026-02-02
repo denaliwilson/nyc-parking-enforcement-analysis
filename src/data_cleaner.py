@@ -819,5 +819,41 @@ def main():
         print("="*60)
 
 
+def clean_data_pipeline(raw_filepath, date_str=None):
+    """
+    Utility function to run the full cleaning pipeline on a raw data file.
+    Used by generate_analysis.py and test scripts.
+    
+    Parameters:
+    -----------
+    raw_filepath : Path or str
+        Path to raw CSV file
+    date_str : str, optional
+        Date string for filename (e.g., '2025-12-30')
+    
+    Returns:
+    --------
+    tuple : (cleaned_filepath, cleaner_instance) or None if failed
+    """
+    print("\n" + "=" * 60)
+    print("CLEANING DATA")
+    print("=" * 60)
+    
+    cleaner = ParkingDataCleaner()
+    clean_df = cleaner.run_full_pipeline(raw_filepath)
+    
+    if clean_df is None:
+        print("\nData cleaning failed")
+        return None
+    
+    # Save cleaned data with date in filename
+    cleaned_filepath = cleaner.save_cleaned_data(date_str=date_str)
+    
+    # Save removal report with date in filename
+    cleaner.save_removal_report(date_str=date_str)
+    
+    return cleaned_filepath, cleaner
+
+
 if __name__ == "__main__":
     main()
