@@ -52,6 +52,7 @@ ESSENTIAL_FIELDS = [
     "violation",
     "fine_amount",
     "reduction_amount",
+    "precinct",
     "county",
     "issuing_agency"
 ]

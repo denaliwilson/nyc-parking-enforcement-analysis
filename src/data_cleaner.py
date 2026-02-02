@@ -91,7 +91,7 @@ class ParkingDataCleaner:
         
         # 4. Unique values in categorical fields
         print(f"\nCategorical Field Cardinality:")
-        categorical_cols = ['state', 'license_type', 'county', 'issuing_agency']
+        categorical_cols = ['state', 'license_type', 'precinct', 'county', 'issuing_agency']
         for col in categorical_cols:
             if col in df.columns:
                 n_unique = df[col].nunique()
@@ -151,14 +151,16 @@ class ParkingDataCleaner:
         df['week_of_year'] = df['issue_date'].dt.isocalendar().week
         
         # Parse violation_time
-        # CRITICAL PITFALL: violation_time format is often "HHmmA" (e.g., "1045A", "0230P")
+        # CRITICAL PITFALL: violation_time can be in two formats:
+        # 1. "HH:mmA" (e.g., "10:45A", "02:30P") - most common in recent data
+        # 2. "HHmmA" (e.g., "1045A", "0230P") - legacy format
         print("\nProcessing violation_time...")
-        print("   Time format is HHmmA (e.g., '1045A' = 10:45 AM)")
+        print("   Time format can be HH:mmA or HHmmA")
         
         def parse_time(time_str):
             """
-            Parse violation time in HHmmA format
-            Examples: '1045A' -> '10:45', '0230P' -> '14:30'
+            Parse violation time in HH:mmA or HHmmA format
+            Examples: '10:45A' -> '10:45', '1045A' -> '10:45', '02:30P' -> '14:30'
             """
             if pd.isnull(time_str):
                 return None
@@ -175,12 +177,17 @@ class ParkingDataCleaner:
                     meridiem = None
                     time_digits = time_str
                 
-                # Pad with zeros if needed
-                time_digits = time_digits.zfill(4)
-                
-                # Extract hours and minutes
-                hours = int(time_digits[:2])
-                minutes = int(time_digits[2:4])
+                # Check if format has colon (HH:mm) or not (HHmm)
+                if ':' in time_digits:
+                    # Format: HH:mm
+                    parts = time_digits.split(':')
+                    hours = int(parts[0])
+                    minutes = int(parts[1]) if len(parts) > 1 else 0
+                else:
+                    # Format: HHmm - pad with zeros if needed
+                    time_digits = time_digits.zfill(4)
+                    hours = int(time_digits[:2])
+                    minutes = int(time_digits[2:4])
                 
                 # Convert to 24-hour format if needed
                 if meridiem == 'P' and hours != 12:
@@ -281,6 +288,25 @@ class ParkingDataCleaner:
             for ltype, count in df['license_type'].value_counts().head(10).items():
                 pct = (count / len(df)) * 100
                 print(f"      {ltype:15s}: {count:6,} ({pct:5.1f}%)")
+        
+        # 4. Precinct processing
+        print(f"\nProcessing precinct information...")
+        if 'precinct' in df.columns:
+            # Clean and standardize precinct values
+            df['precinct'] = df['precinct'].astype(str).str.strip()
+            
+            # Convert to numeric where possible (NYC precincts are typically 1-123)
+            df['precinct_numeric'] = pd.to_numeric(df['precinct'], errors='coerce')
+            
+            # Count valid precincts
+            valid_precincts = df['precinct_numeric'].notna().sum()
+            print(f"   Valid numeric precincts: {valid_precincts:,} ({valid_precincts/len(df)*100:.1f}%)")
+            
+            # Show top precincts
+            print(f"   Top 10 precincts by citation count:")
+            for precinct, count in df['precinct'].value_counts().head(10).items():
+                pct = (count / len(df)) * 100
+                print(f"      Precinct {precinct:5s}: {count:6,} ({pct:5.1f}%)")
         
         self.raw_df = df
         return df

@@ -19,6 +19,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import io
 import base64
+import geopandas as gpd
+import requests
+from matplotlib.colors import LinearSegmentedColormap
 
 sys.path.append(str(Path(__file__).parent.parent))
 from src.config import RAW_DATA_DIR, PROCESSED_DATA_DIR, REPORTS_DIR
@@ -101,7 +104,7 @@ def generate_graphs(df):
     # 4. Hourly distribution
     try:
         if 'violation_hour' in df.columns:
-            fig, ax = plt.subplots(figsize=(12, 5))
+            fig, ax = plt.subplots(figsize=(16, 6))
             hourly_counts = df['violation_hour'].value_counts().sort_index()
             colors_hour = ['#764ba2' if h in [0, 1, 2, 3, 4, 5, 23] else '#667eea' for h in hourly_counts.index]
             ax.bar(hourly_counts.index, hourly_counts.values, color=colors_hour, alpha=0.8, width=0.8, edgecolor='black', linewidth=0.5)
@@ -110,6 +113,7 @@ def generate_graphs(df):
             ax.set_title('Citations by Hour (Night hours in purple)', fontsize=13, fontweight='bold', pad=15)
             ax.set_xticks(range(0, 24))
             ax.grid(True, alpha=0.3, axis='y')
+            plt.tight_layout()
             img_base64 = figure_to_base64(fig)
             graphs_html += f'<div class="chart-container"><img src="data:image/png;base64,{img_base64}" alt="Hourly Distribution"></div>'
     except Exception as e:
@@ -130,7 +134,126 @@ def generate_graphs(df):
     except Exception as e:
         print(f"Warning: Could not generate borough graph: {e}")
     
-    # 6. Fine amount distribution
+    # 6. Precinct distribution (top precincts)
+    try:
+        if 'precinct' in df.columns and df['precinct'].notna().sum() > 0:
+            fig, ax = plt.subplots(figsize=(12, 8))
+            # Filter out precinct 0 (missing/invalid data)
+            precinct_counts = df[df['precinct'] != 0]['precinct'].value_counts().head(20)
+            colors_precinct = plt.cm.viridis(np.linspace(0.2, 0.9, len(precinct_counts)))
+            y_pos = np.arange(len(precinct_counts))
+            ax.barh(y_pos, precinct_counts.values, color=colors_precinct, alpha=0.8, edgecolor='black', linewidth=0.5)
+            ax.set_yticks(y_pos)
+            ax.set_yticklabels([f'Precinct {p}' for p in precinct_counts.index])
+            ax.set_xlabel('Number of Citations', fontsize=11, fontweight='bold')
+            # Add note about excluded data
+            precinct_0_count = (df['precinct'] == 0).sum()
+            title = f'Top 20 Precincts by Citation Count\n(Excludes {precinct_0_count:,} entries with missing precinct data)'
+            ax.set_title(title, fontsize=13, fontweight='bold', pad=15)
+            ax.invert_yaxis()
+            ax.grid(True, alpha=0.3, axis='x')
+            for i, v in enumerate(precinct_counts.values):
+                ax.text(v + 50, i, str(int(v)), va='center', fontweight='bold')
+            img_base64 = figure_to_base64(fig)
+            graphs_html += f'<div class="chart-container"><img src="data:image/png;base64,{img_base64}" alt="Top Precincts"></div>'
+    except Exception as e:
+        print(f"Warning: Could not generate precinct graph: {e}")
+    
+    # 6b. Precinct map (choropleth)
+    try:
+        if 'precinct' in df.columns:
+            # Get NYC precinct shapefile
+            geospatial_dir = Path(__file__).parent.parent / 'data' / 'geospatial'
+            precinct_shapefile = geospatial_dir / 'nyc_precincts.shp'
+            
+            # Download shapefile if not present
+            if not precinct_shapefile.exists():
+                print("  Downloading NYC precinct boundaries...")
+                url = "https://data.cityofnewyork.us/api/geospatial/78dh-3ptz?method=export&format=Shapefile"
+                response = requests.get(url, timeout=60)
+                if response.status_code == 200:
+                    import zipfile
+                    zip_path = geospatial_dir / 'precincts.zip'
+                    geospatial_dir.mkdir(parents=True, exist_ok=True)
+                    with open(zip_path, 'wb') as f:
+                        f.write(response.content)
+                    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                        zip_ref.extractall(geospatial_dir)
+                    zip_path.unlink()
+                    # Find the extracted shapefile
+                    shp_files = list(geospatial_dir.glob('*.shp'))
+                    if shp_files:
+                        precinct_shapefile = shp_files[0]
+                        print(f"  Downloaded and extracted to {precinct_shapefile.name}")
+            
+            if precinct_shapefile.exists():
+                # Load precinct boundaries
+                gdf = gpd.read_file(precinct_shapefile)
+                
+                # Aggregate citation counts by precinct (exclude precinct 0)
+                precinct_citations = df[df['precinct'] != 0]['precinct'].value_counts().to_dict()
+                
+                # Match precinct column name (could be 'precinct', 'Precinct', or similar)
+                precinct_col = None
+                for col in gdf.columns:
+                    if col.lower() == 'precinct' or 'prec' in col.lower():
+                        precinct_col = col
+                        break
+                
+                if precinct_col:
+                    # Convert to numeric if needed
+                    gdf[precinct_col] = pd.to_numeric(gdf[precinct_col], errors='coerce')
+                    
+                    # Map citation counts to precincts
+                    gdf['citations'] = gdf[precinct_col].map(precinct_citations).fillna(0)
+                    
+                    # Create figure
+                    fig, ax = plt.subplots(figsize=(12, 14))
+                    
+                    # Create green-red colormap
+                    colors = ['#00ff00', '#ffff00', '#ff8800', '#ff0000']
+                    n_bins = 100
+                    cmap = LinearSegmentedColormap.from_list('citations', colors, N=n_bins)
+                    
+                    # Plot choropleth
+                    gdf.plot(column='citations', cmap=cmap, linewidth=0.8, 
+                            ax=ax, edgecolor='black', legend=True,
+                            legend_kwds={'label': "Number of Citations",
+                                       'orientation': "vertical",
+                                       'shrink': 0.6})
+                    
+                    # Add precinct labels
+                    for idx, row in gdf.iterrows():
+                        if row['citations'] > 0:
+                            centroid = row.geometry.centroid
+                            ax.annotate(text=str(int(row[precinct_col])), 
+                                      xy=(centroid.x, centroid.y),
+                                      horizontalalignment='center',
+                                      fontsize=7, fontweight='bold',
+                                      color='black',
+                                      bbox=dict(boxstyle='round,pad=0.3', 
+                                              facecolor='white', 
+                                              alpha=0.7, 
+                                              edgecolor='none'))
+                    
+                    ax.set_title('NYC Precincts by Citation Prevalence\n(Green=Least, Red=Most)', 
+                               fontsize=13, fontweight='bold', pad=15)
+                    ax.axis('off')
+                    plt.tight_layout()
+                    
+                    img_base64 = figure_to_base64(fig)
+                    graphs_html += f'<div class="chart-container"><img src="data:image/png;base64,{img_base64}" alt="Precinct Map"></div>'
+                    print("  SUCCESS: Precinct map generated")
+                else:
+                    print("  Warning: Could not identify precinct column in shapefile")
+            else:
+                print("  Warning: Precinct shapefile not available")
+    except Exception as e:
+        print(f"Warning: Could not generate precinct map: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    # 7. Fine amount distribution
     try:
         fig, ax = plt.subplots(figsize=(10, 5))
         fine_bins = [0, 50, 100, 150, 200, 300, 500, 10000]
