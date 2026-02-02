@@ -277,6 +277,14 @@ class ParkingDataCleaner:
         df['county'] = df['county'].str.upper().str.strip()
         df['county'] = df['county'].replace(borough_mapping)
         
+        # Handle "MN" in precinct field as Manhattan shorthand
+        if 'precinct' in df.columns:
+            mn_mask = df['precinct'].astype(str).str.upper().str.strip() == 'MN'
+            mn_count = mn_mask.sum()
+            if mn_count > 0:
+                df.loc[mn_mask, 'county'] = 'MANHATTAN'
+                print(f"   Mapped {mn_count:,} 'MN' precinct entries to MANHATTAN")
+        
         print(f"   Borough distribution:")
         for borough, count in df['county'].value_counts().items():
             pct = (count / len(df)) * 100

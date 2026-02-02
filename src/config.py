@@ -31,7 +31,7 @@ APP_TOKEN = os.getenv("NYC_APP_TOKEN", None)
 
 # Data loading defaults
 DEFAULT_LIMIT = 10000
-MAX_RECORDS_PER_REQUEST = 50000
+MAX_RECORDS_PER_REQUEST = 75000
 
 # Date range for initial data load (adjust as needed)
 DEFAULT_START_DATE = "2024-11-01"

@@ -164,36 +164,28 @@ def generate_graphs(df):
         if 'precinct' in df.columns:
             # Get NYC precinct shapefile
             geospatial_dir = Path(__file__).parent.parent / 'data' / 'geospatial'
-            precinct_shapefile = geospatial_dir / 'nyc_precincts.shp'
+            precinct_file = geospatial_dir / 'nyc_precincts.geojson'
             
-            # Download shapefile if not present
-            if not precinct_shapefile.exists():
+            # Download if not present
+            if not precinct_file.exists():
                 print("  Downloading NYC precinct boundaries...")
-                url = "https://data.cityofnewyork.us/api/geospatial/78dh-3ptz?method=export&format=Shapefile"
+                url = "https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Police_Precincts/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=geojson"
                 response = requests.get(url, timeout=60)
                 if response.status_code == 200:
-                    import zipfile
-                    zip_path = geospatial_dir / 'precincts.zip'
                     geospatial_dir.mkdir(parents=True, exist_ok=True)
-                    with open(zip_path, 'wb') as f:
-                        f.write(response.content)
-                    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                        zip_ref.extractall(geospatial_dir)
-                    zip_path.unlink()
-                    # Find the extracted shapefile
-                    shp_files = list(geospatial_dir.glob('*.shp'))
-                    if shp_files:
-                        precinct_shapefile = shp_files[0]
-                        print(f"  Downloaded and extracted to {precinct_shapefile.name}")
+                    data = response.json()
+                    gdf_temp = gpd.GeoDataFrame.from_features(data['features'])
+                    gdf_temp.to_file(precinct_file, driver='GeoJSON')
+                    print(f"  Downloaded {len(gdf_temp)} precincts")
             
-            if precinct_shapefile.exists():
+            if precinct_file.exists():
                 # Load precinct boundaries
-                gdf = gpd.read_file(precinct_shapefile)
+                gdf = gpd.read_file(precinct_file)
                 
                 # Aggregate citation counts by precinct (exclude precinct 0)
                 precinct_citations = df[df['precinct'] != 0]['precinct'].value_counts().to_dict()
                 
-                # Match precinct column name (could be 'precinct', 'Precinct', or similar)
+                # Find precinct column (should be 'Precinct')
                 precinct_col = None
                 for col in gdf.columns:
                     if col.lower() == 'precinct' or 'prec' in col.lower():
@@ -236,13 +228,13 @@ def generate_graphs(df):
                                               alpha=0.7, 
                                               edgecolor='none'))
                     
-                    ax.set_title('NYC Precincts by Citation Prevalence\n(Green=Least, Red=Most)', 
+                    ax.set_title('NYC Precincts by Citation Prevalence\\n(Green=Least, Red=Most)', 
                                fontsize=13, fontweight='bold', pad=15)
                     ax.axis('off')
                     plt.tight_layout()
                     
                     img_base64 = figure_to_base64(fig)
-                    graphs_html += f'<div class="chart-container"><img src="data:image/png;base64,{img_base64}" alt="Precinct Map"></div>'
+                    graphs_html += f'<div class=\"chart-container\"><img src=\"data:image/png;base64,{img_base64}\" alt=\"Precinct Map\"></div>'
                     print("  SUCCESS: Precinct map generated")
                 else:
                     print("  Warning: Could not identify precinct column in shapefile")
@@ -327,7 +319,7 @@ def fetch_week_data(dates):
         day_name = datetime.strptime(date_str, "%Y-%m-%d").strftime("%A")
         
         try:
-            df = loader.load_by_day(date_str, limit=50000)
+            df = loader.load_by_day(date_str, limit=75000)
             if df is None or len(df) == 0:
                 print(f"  [{i}/7] {date_str} ({day_name:9s}): No data")
                 failed_dates.append(date_str)

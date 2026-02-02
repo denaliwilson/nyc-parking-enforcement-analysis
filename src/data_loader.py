@@ -111,7 +111,7 @@ class NYCParkingDataLoader:
         print(f"{'='*60}\n")
         
         params = {
-            '$limit': min(limit, 50000),
+            '$limit': min(limit, 75000),
             '$order': 'issue_date DESC'
         }
         
@@ -189,7 +189,7 @@ class NYCParkingDataLoader:
                 where_clause = " OR ".join(year_conditions)
         
         params = {
-            '$limit': min(limit, 50000),
+            '$limit': min(limit, 75000),
             '$where': where_clause,
             '$order': 'issue_date DESC'
         }
@@ -224,7 +224,7 @@ class NYCParkingDataLoader:
             print(" Failed to load data")
             return None
 
-    def load_by_day(self, date, limit=50000):
+    def load_by_day(self, date, limit=75000):
         """
         Load citations for a single day
 
@@ -259,7 +259,7 @@ class NYCParkingDataLoader:
         print(f"\n Loading {limit:,} citations from {borough}")
         
         params = {
-            '$limit': min(limit, 50000),
+            '$limit': min(limit, 75000),
             '$where': f"county = '{borough.upper()}'",
             '$order': 'issue_date DESC'
         }
@@ -498,7 +498,7 @@ def main():
     print("="*60 + "\n")
 
 
-def fetch_data_for_day(date_str, limit=50000):
+def fetch_data_for_day(date_str, limit=75000):
     """
     Utility function to fetch and save data for a single day.
     Used by generate_analysis.py and test scripts.
