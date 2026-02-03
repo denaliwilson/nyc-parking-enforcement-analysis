@@ -838,6 +838,24 @@ class ParkingDataCleaner:
         self.save_removal_report()
         
         return clean_df
+    
+    def clean_dataframe(self, df):
+        """Run cleaning pipeline on a DataFrame directly (for dashboard/API use)"""
+        # Set the dataframe
+        self.raw_df = df.copy()
+        self.cleaning_report['initial_records'] = len(self.raw_df)
+        
+        # Run cleaning steps (skip load and quality check for speed)
+        self.clean_dates()
+        self.clean_categorical_fields()
+        self.clean_numeric_fields()
+        self.remove_duplicates()
+        self.create_derived_features()
+        
+        # Finalize
+        clean_df = self.finalize_cleaning()
+        
+        return clean_df
 
 
 def main():
