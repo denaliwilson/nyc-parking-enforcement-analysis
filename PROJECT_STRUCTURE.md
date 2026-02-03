@@ -12,12 +12,22 @@ nyc-parking-enforcement-analysis/
 │
 ├── data/                           # Data storage
 │   ├── raw/                        # Raw downloaded data (not modified)
-│   │   ├── test_sample_1000.csv    # Sample for testing
+│   │   ├── parking_raw_*.csv       # Raw API downloads
 │   │   └── *.csv                   # Additional raw data files
 │   │
 │   ├── processed/                  # Cleaned, analysis-ready data
-│   │   ├── parking_cleaned_764_records_20260201_151917.csv
-│   │   └── *.csv                   # Additional cleaned files
+│   │   ├── parking_cleaned_citations_week_*.csv
+│   │   │   # 7-day combined datasets from weekly analysis
+│   │   ├── parking_cleaned_citations_month_*.csv
+│   │   │   # 28-31 day combined datasets from monthly analysis
+│   │   └── parking_cleaned_*_records_*.csv
+│   │       # Individual cleaned datasets from data_cleaner.py
+│   │
+│   ├── archive/                    # Archived processed files
+│   │   └── Older versions of processed datasets
+│   │
+│   ├── geospatial/                 # Geographic data
+│   │   └── nyc_precincts.geojson  # NYC precinct boundaries (optional)
 │   │
 │   └── dof_parking_camera_violations.schema.json
 │       # API schema documentation from NYC Open Data
@@ -30,30 +40,44 @@ nyc-parking-enforcement-analysis/
 │   │
 │   ├── data_loader.py              # Download and load data from API
 │   │   └── Classes: NYCParkingDataLoader
-│   │   └── Functions: save_data(), display_summary()
+│   │   └── Functions: load_by_day(), save_data(), display_summary()
 │   │
 │   ├── data_cleaner.py             # Clean and process data
 │   │   └── Classes: ParkingDataCleaner
 │   │   └── Methods: check_data_quality(), clean_dates(), clean_numeric_fields()
 │   │
-│   ├── test_loader.py              # Test suite for data loading
-│   │   └── Tests: API connection, data structure, filtering
-│   │   └── Run: python src/test_loader.py
+│   ├── generate_weekly_analysis.py # Weekly analysis with 6 visualizations
+│   │   └── Interactive 7-day analysis tool
+│   │   └── Functions: get_week_dates(), fetch_week_data(), generate_graphs()
+│   │   └── Output: HTML reports with embedded charts
+│   │   └── Run: python src/generate_weekly_analysis.py
+│   │
+│   ├── generate_monthly_analysis.py # Monthly analysis with 8 visualizations
+│   │   └── Interactive full-month analysis tool
+│   │   └── Functions: get_month_dates(), fetch_month_data(), generate_graphs()
+│   │   └── Includes: Precinct bar chart + geographic choropleth map
+│   │   └── Output: HTML reports with embedded charts and maps
+│   │   └── Run: python src/generate_monthly_analysis.py
+│   │
+│   ├── preliminary_analysis.py     # Initial exploratory analysis
+│   │   └── Basic statistical analysis and data profiling
 │   │
 │   ├── diagnostic.py               # System diagnostics
 │   │   └── Checks: Python version, dependencies, API access
 │   │   └── Run: python src/diagnostic.py
 │   │
-│   └── [future modules]
-│       └── data_analyzer.py        # (planned) Analysis functions
-│       └── visualizer.py           # (planned) Visualization functions
+│   └── tests/                      # Test suite
+│       └── Unit tests for data loading and cleaning
 │
 ├── outputs/                        # Analysis outputs and results
 │   ├── reports/                    # Analysis reports and summaries
-│   │   └── [future report files]
+│   │   ├── analysis_report_citations_week_*.html
+│   │   │   └── Weekly analysis reports with 6 visualizations
+│   │   └── analysis_report_citations_month_*.html
+│   │       └── Monthly analysis reports with 8 visualizations + map
 │   │
 │   └── figures/                    # Charts, graphs, and visualizations
-│       └── [future figure files]
+│       └── [Graphs embedded in HTML reports as base64 PNG]
 │
 ├── notebooks/                      # Jupyter notebooks for exploration
 │   └── [future notebook files]
@@ -106,13 +130,16 @@ Python modules and scripts for the project.
 | config.py | Centralized configuration | Module | `python -c "from src.config import *"` |
 | data_loader.py | API data retrieval | Module + Script | `python src/data_loader.py` |
 | data_cleaner.py | Data processing | Module + Script | `python src/data_cleaner.py` |
-| test_loader.py | Quality assurance | Script | `python src/test_loader.py` |
+| generate_weekly_analysis.py | 7-day analysis with 6 charts | Script | `python src/generate_weekly_analysis.py` |
+| generate_monthly_analysis.py | Monthly analysis with 8 charts + map | Script | `python src/generate_monthly_analysis.py` |
+| preliminary_analysis.py | Exploratory data analysis | Script | `python src/preliminary_analysis.py` |
 | diagnostic.py | System checks | Script | `python src/diagnostic.py` |
 
 **Usage Pattern:**
 1. Modules can be imported: `from src.config import ESSENTIAL_FIELDS`
 2. Scripts can be executed standalone: `python src/data_loader.py`
 3. All scripts respect configuration in config.py
+4. **Analysis tools generate HTML reports with embedded visualizations**
 
 ### `/outputs` - Results and Artifacts
 Contains all generated analysis outputs.
@@ -373,6 +400,90 @@ python src/diagnostic.py       # Check system setup
 
 ---
 
+## Analysis Tools
+
+### Weekly Analysis (`generate_weekly_analysis.py`)
+
+**Purpose:** Analyze 7 consecutive days of parking citations with interactive visualizations.
+
+**Features:**
+- Interactive date selection with validation (2008-present)
+- Automatic data fetching for 7 consecutive days
+- Single-pass data cleaning with quality metrics
+- 6 matplotlib visualizations embedded in HTML
+
+**Workflow:**
+1. User enters start date (YYYY-MM-DD format)
+2. Script fetches data for 7 days via NYC Open Data API
+3. Data is cleaned and validated (deduplication, type checking)
+4. Generates 6 visualizations:
+   - Daily citation trend (line chart)
+   - Day of week distribution (bar chart)
+   - Top 20 violation types (horizontal bars)
+   - Hourly distribution (bar chart)
+   - Borough breakdown (pie chart)
+   - Fine amount distribution (histogram)
+5. Creates self-contained HTML report with embedded charts
+
+**Output:**
+- File: `outputs/reports/analysis_report_citations_week_YYYY-MM-DD_to_YYYY-MM-DD_TIMESTAMP.html`
+- Data: `data/processed/parking_cleaned_citations_week_YYYY-MM-DD_to_YYYY-MM-DD_*.csv`
+
+**Performance:** ~50 seconds for 7 days (~190k-300k records)
+
+---
+
+### Monthly Analysis (`generate_monthly_analysis.py`)
+
+**Purpose:** Analyze a full month (28-31 days) of parking citations with geographic mapping.
+
+**Features:**
+- Interactive year/month selection
+- Automatic handling of month lengths (28-31 days)
+- Progress tracking for multi-day fetching
+- 8 matplotlib visualizations including geographic map
+- Daily average calculations
+
+**Workflow:**
+1. User enters year and month
+2. Script calculates all dates in the month
+3. Fetches data day-by-day with progress indicators
+4. Data is cleaned and validated
+5. Generates 8 visualizations:
+   - Daily citation trend (line chart showing full month pattern)
+   - Day of week distribution (bar chart)
+   - Top 20 violation types (horizontal bars)
+   - Hourly distribution (bar chart)
+   - Borough breakdown (pie chart)
+   - Fine amount distribution (histogram)
+   - **Top 20 precincts** (bar chart with viridis colors)
+   - **Geographic precinct map** (choropleth with YlOrRd heat gradient)
+6. Creates self-contained HTML report with embedded charts and map
+
+**Geographic Map Details:**
+- Downloads NYC precinct boundaries from ArcGIS REST API
+- Merges citation counts with precinct geometries using geopandas
+- Color-coded choropleth (yellow=low, orange=medium, red=high citations)
+- Precinct numbers labeled at centroids
+- Black boundary lines for clarity
+- Filters out invalid precincts (precinct 0)
+
+**Output:**
+- File: `outputs/reports/analysis_report_citations_month_YYYY-MM_TIMESTAMP.html`
+- Data: `data/processed/parking_cleaned_citations_month_YYYY-MM_*.csv`
+
+**Performance:** 2-10 minutes for full month (~800k-1.2M records)
+
+**Data Sources:**
+- Citation data: NYC Open Data Socrata API (nc67-uf89)
+- Precinct boundaries: NYC ArcGIS REST API
+  ```
+  https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/
+  NYC_Police_Precincts/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=geojson
+  ```
+
+---
+
 ## Future Structure Additions
 
 As the project grows, consider adding:
@@ -405,11 +516,13 @@ As the project grows, consider adding:
 
 | What | Where | Command |
 |------|-------|---------|
+| **Weekly Analysis** | `src/generate_weekly_analysis.py` | `python src/generate_weekly_analysis.py` |
+| **Monthly Analysis** | `src/generate_monthly_analysis.py` | `python src/generate_monthly_analysis.py` |
 | Download data | `src/data_loader.py` | `python src/data_loader.py` |
 | Clean data | `src/data_cleaner.py` | `python src/data_cleaner.py` |
-| Test system | `src/test_loader.py` | `python src/test_loader.py` |
 | Check setup | `src/diagnostic.py` | `python src/diagnostic.py` |
 | Raw data location | `data/raw/` | See files |
 | Cleaned data location | `data/processed/` | See files |
+| **HTML Reports** | `outputs/reports/` | **Open in browser** |
 | Analysis results | `outputs/` | See subdirs |
 | Configuration | `src/config.py` | Edit as needed |

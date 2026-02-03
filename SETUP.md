@@ -43,15 +43,55 @@ If you get encoding errors during installation (Windows), ensure you're using th
 
 ## Running the Project
 
-### Option 1: Full Pipeline (Automated)
-Run all steps in sequence:
-```bash
-# Activate virtual environment first
-.\.venv\Scripts\python.exe src/data_loader.py    # Download data from API
-.\.venv\Scripts\python.exe src/data_cleaner.py   # Clean and process data
-```
+### Quick Start - Analysis Tools
 
-### Option 2: Step-by-Step
+The fastest way to analyze NYC parking data:
+
+#### Weekly Analysis (7 days, ~50 seconds)
+```bash
+# Activate virtual environment
+.\.venv\Scripts\Activate.ps1
+
+# Run weekly analysis
+python src/generate_weekly_analysis.py
+```
+**Prompts:**
+- Enter start date in YYYY-MM-DD format (e.g., 2025-12-30)
+- Confirm to proceed
+
+**Output:** `outputs/reports/analysis_report_citations_week_YYYY-MM-DD_to_YYYY-MM-DD_TIMESTAMP.html`
+
+**Includes:**
+- 6 visualizations (daily trend, day of week, violations, hourly, borough, fines)
+- ~190k-300k records analyzed
+- Data quality metrics
+
+#### Monthly Analysis (28-31 days, 2-10 minutes)
+```bash
+# Activate virtual environment
+.\.venv\Scripts\Activate.ps1
+
+# Run monthly analysis
+python src/generate_monthly_analysis.py
+```
+**Prompts:**
+- Enter year (YYYY format, e.g., 2026)
+- Enter month (1-12, e.g., 1 for January)
+- Confirm to proceed
+
+**Output:** `outputs/reports/analysis_report_citations_month_YYYY-MM_TIMESTAMP.html`
+
+**Includes:**
+- 8 visualizations (all weekly charts plus precinct bar chart and geographic map)
+- 800k-1.2M+ records analyzed
+- Color-coded precinct choropleth map showing spatial distribution
+- Daily averages and comprehensive statistics
+
+---
+
+### Option 1: Manual Data Pipeline
+
+Run individual components step-by-step:
 
 #### Step 1: Check System Configuration
 ```bash
@@ -76,15 +116,7 @@ Output: `data/raw/nyc_parking_<records>_<timestamp>.csv`
 ```
 Output: `data/processed/parking_cleaned_<records>_<timestamp>.csv`
 
-#### Step 4: Run Tests
-```bash
-.\.venv\Scripts\python.exe src/test_loader.py
-```
-All 4 tests should pass:
-- API Connection
-- Data Structure
-- Date Filtering
-- Borough Filtering
+### Option 2: Step-by-Step (Legacy)
 
 ---
 
@@ -228,6 +260,22 @@ nyc-parking-enforcement-analysis/
 
 ## Common Tasks
 
+### Run Weekly Analysis (Recommended)
+```bash
+# Activate venv and run
+.\.venv\Scripts\Activate.ps1
+python src/generate_weekly_analysis.py
+```
+Analyzes 7 consecutive days with 6 visualizations. Output: HTML report in `outputs/reports/`
+
+### Run Monthly Analysis (Recommended)
+```bash
+# Activate venv and run
+.\.venv\Scripts\Activate.ps1
+python src/generate_monthly_analysis.py
+```
+Analyzes full month (28-31 days) with 8 visualizations + precinct map. Output: HTML report in `outputs/reports/`
+
 ### Download fresh data
 ```bash
 .\.venv\Scripts\python.exe src/data_loader.py
@@ -239,11 +287,6 @@ nyc-parking-enforcement-analysis/
 ```
 
 ### Verify everything works
-```bash
-.\.venv\Scripts\python.exe src/test_loader.py
-```
-
-### Run diagnostics
 ```bash
 .\.venv\Scripts\python.exe src/diagnostic.py
 ```
@@ -257,10 +300,21 @@ nyc-parking-enforcement-analysis/
 
 ## Performance Notes
 
+### Analysis Tools
+- **Weekly Analysis:** 7 days, ~190k-300k records, ~50 seconds total
+- **Monthly Analysis:** 28-31 days, ~800k-1.2M records, 2-10 minutes
+- **Precinct Map Download:** ~2-3 seconds from NYC ArcGIS API
+
+### Data Pipeline
 - **Data Download:** 1,000 records takes ~0.5-1 second
 - **Data Cleaning:** 1,000 records takes ~2-3 seconds
 - **File Size:** Raw CSV (~1,000 records) ≈ 100-150 KB
-- **Processed Size:** Cleaned CSV (764 records) ≈ 130 KB
+- **Processed Size:** Cleaned CSV ≈ similar to raw
+
+### Visualization
+- **Charts Generated:** 6 (weekly) or 8 (monthly) matplotlib figures
+- **Encoding:** Base64 PNG embedded in HTML
+- **Report Size:** 2-5 MB depending on number of charts
 
 ---
 
