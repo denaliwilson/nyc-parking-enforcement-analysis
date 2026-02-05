@@ -29,46 +29,6 @@ from src.config import PROCESSED_DATA_DIR, RAW_DATA_DIR, GEOSPATIAL_DATA_DIR
 from src.data_loader import NYCParkingDataLoader
 from src.data_cleaner import ParkingDataCleaner
 
-# Page configuration
-st.set_page_config(
-    page_title="NYC Parking Citations Dashboard",
-    page_icon="🚗",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# Initialize session state for drill-down and data persistence
-if 'selected_borough' not in st.session_state:
-    st.session_state.selected_borough = None
-if 'selected_precinct' not in st.session_state:
-    st.session_state.selected_precinct = None
-if 'data_loaded' not in st.session_state:
-    st.session_state.data_loaded = False
-if 'df' not in st.session_state:
-    st.session_state.df = None
-
-# Title and description
-st.title("🚗 NYC Parking Citations Dashboard")
-st.markdown("**Interactive analysis of New York City parking violations**")
-
-# Sidebar for data selection
-st.sidebar.header("📅 Data Selection")
-
-# Data source selection
-data_source = st.sidebar.radio(
-    "Load data from:",
-    options=["Live API (by date)", "Saved datasets"],
-    index=0
-)
-
-# Check if we already have loaded data from Live API
-if data_source == "Live API (by date)" and st.session_state.data_loaded and st.session_state.df is not None:
-    df = st.session_state.df
-    st.sidebar.success(f"✅ Data loaded: {len(df):,} records")
-else:
-    st.session_state.data_loaded = False
-    st.session_state.df = None
-
 # Initialize loader and cleaner
 @st.cache_resource
 def get_loader():
@@ -126,38 +86,163 @@ def load_geojson():
 loader = get_loader()
 cleaner = get_cleaner()
 
-# Load data based on selection
-df = None
+# Page configuration
+st.set_page_config(
+    page_title="NYC Parking Citations Dashboard",
+    page_icon="🚗",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-if data_source == "Live API (by date)":
-    # Check if data is already loaded
-    if st.session_state.data_loaded and st.session_state.df is not None:
-        df = st.session_state.df
-        st.sidebar.success(f"✅ {len(df):,} records loaded")
-        if st.sidebar.button("🔄 Load New Data"):
+# Custom CSS for typography and visual polish
+st.markdown("""
+<style>
+    /* Typography improvements */
+    .stMetric {
+        font-family: 'Arial', sans-serif;
+        background-color: #FFFFFF;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+        padding-bottom: 20px;
+        padding-top: 10px;
+        font-weight: 600;
+    }
+    
+    h2 {
+        padding-top: 15px;
+        padding-bottom: 10px;
+        font-weight: 600;
+        color: #2C3E50;
+    }
+    
+    h3 {
+        padding-top: 10px;
+        padding-bottom: 8px;
+        font-weight: 600;
+        color: #34495E;
+    }
+    
+    /* Visual polish - colored dividers */
+    .stDivider {
+        background: linear-gradient(to right, #FF6B6B, #4ECDC4);
+        height: 2px;
+        margin: 20px 0;
+    }
+    
+    /* Card effect for sections */
+    .stPlotlyChart {
+        background-color: #FFFFFF;
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        border-radius: 6px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    /* Data table styling */
+    .dataframe {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Initialize session state for drill-down and data persistence
+if 'selected_borough' not in st.session_state:
+    st.session_state.selected_borough = None
+if 'selected_precinct' not in st.session_state:
+    st.session_state.selected_precinct = None
+if 'data_loaded' not in st.session_state:
+    st.session_state.data_loaded = False
+if 'df' not in st.session_state:
+    st.session_state.df = None
+
+# Check if data is already loaded
+if st.session_state.data_loaded and st.session_state.df is not None:
+    # Data is loaded - show compact header with reload button
+    st.title("NYC Parking Citations Dashboard")
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.markdown(f"**{len(st.session_state.df):,} citations loaded**")
+    with col2:
+        if st.button("Load New Dates", type="primary", use_container_width=True):
             st.session_state.data_loaded = False
             st.session_state.df = None
+            st.session_state.selected_borough = None
+            st.session_state.selected_precinct = None
+            if 'quick_select' in st.session_state:
+                del st.session_state.quick_select
             st.rerun()
-    else:
-        # Show date selection UI only if data not loaded
-        st.sidebar.markdown("### Select Date Range")
+    
+    df = st.session_state.df
+else:
+    # No data loaded - show prominent date selector landing page
+    st.title("NYC Parking Citations Dashboard")
+    st.markdown("### Select Date Range to Begin")
+    st.markdown("Load NYC parking citation data to explore interactive maps and analytics.")
+    
+    st.markdown("---")
+    
+    # Center the date selection in main area
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        # Default dates
+        default_date = datetime(2025, 12, 30).date()
+        max_available_date = datetime.now().date() - timedelta(days=2)
         
-        # Default to a date with known good data (from processed files we can see Jan 2026 has data)
-        # But let's use a safer date - 30 days ago which should have data
-        default_date = datetime(2025, 12, 30).date()  # Known good date from your processed files
-        max_available_date = datetime.now().date() - timedelta(days=2)  # Data usually 2 days behind
+        st.info("**Tip:** NYC data is typically 2-3 days behind. Try dates from 2025.")
         
-        st.sidebar.info(f"💡 **Tip:** NYC data is typically 2-3 days behind. Try dates from 2025.")
+        # Quick selection buttons in a more prominent way
+        st.markdown("#### Quick Select:")
+        quick_cols = st.columns(2)
         
-        # Quick selection buttons
-        date_option = st.sidebar.radio(
-            "Quick select:",
-            options=["Single day", "Last 3 days", "Last 7 days", "Custom range"],
-            index=0
-        )
+        with quick_cols[0]:
+            if st.button("Last Week", use_container_width=True, type="secondary"):
+                st.session_state.quick_select = "week"
+        
+        with quick_cols[1]:
+            if st.button("Last Month", use_container_width=True, type="secondary"):
+                st.session_state.quick_select = "month"
+        
+        st.markdown("#### Or Choose Custom:")
+        
+        # Handle quick select first
+        if 'quick_select' in st.session_state:
+            if st.session_state.quick_select == "week":
+                end_date = default_date
+                start_date = end_date - timedelta(days=6)
+                st.info(f"Will load: {start_date} to {end_date}")
+                date_option = "quick_week"
+            elif st.session_state.quick_select == "month":
+                end_date = default_date
+                start_date = end_date - timedelta(days=29)
+                st.info(f"Will load: {start_date} to {end_date}")
+                date_option = "quick_month"
+        else:
+            # Date selection
+            date_option = st.radio(
+                "Select mode:",
+                options=["Single day", "Last 3 days", "Custom range"],
+                horizontal=True
+            )
         
         if date_option == "Single day":
-            selected_date = st.sidebar.date_input(
+            selected_date = st.date_input(
                 "Select date:",
                 value=default_date,
                 max_value=max_available_date,
@@ -168,17 +253,20 @@ if data_source == "Live API (by date)":
         elif date_option == "Last 3 days":
             end_date = default_date
             start_date = end_date - timedelta(days=2)
-            st.sidebar.info(f"📅 Loading: {start_date} to {end_date}")
+            st.info(f"Will load: {start_date} to {end_date}")
             
-        elif date_option == "Last 7 days":
-            end_date = default_date
-            start_date = end_date - timedelta(days=6)
-            st.sidebar.info(f"📅 Loading: {start_date} to {end_date}")
+        elif date_option == "quick_week":
+            # Already set by quick select, just pass through
+            pass
+            
+        elif date_option == "quick_month":
+            # Already set by quick select, just pass through
+            pass
             
         else:  # Custom range
-            date_range = st.sidebar.date_input(
-                "Select date range:",
-                value=(default_date - timedelta(days=6), default_date),
+            date_range = st.date_input(
+                "Select custom range:",
+                value=(default_date - timedelta(days=2), default_date),
                 max_value=max_available_date,
                 help="NYC data is most complete for dates before today"
             )
@@ -187,8 +275,10 @@ if data_source == "Live API (by date)":
             else:
                 start_date = end_date = default_date
         
-        # Load button
-        if st.sidebar.button("🔄 Load Data", type="primary"):
+        st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
+        
+        # Load button - prominent and centered
+        if st.button("Load Data & Start Analysis", type="primary", use_container_width=True):
             loading_container = st.empty()
             
             with loading_container.container():
@@ -197,7 +287,7 @@ if data_source == "Live API (by date)":
                 
                 if num_days == 1:
                     # Single day - load directly
-                    with st.spinner(f"📥 Fetching citations for {start_date}..."):
+                    with st.spinner(f"Fetching citations for {start_date}..."):
                         date_str = start_date.strftime('%Y-%m-%d')
                         raw_df = loader.load_by_day(date_str)
                     
@@ -242,95 +332,15 @@ if data_source == "Live API (by date)":
             loading_container.empty()
             st.session_state.data_loaded = True
             st.session_state.df = df
+            if 'quick_select' in st.session_state:
+                del st.session_state.quick_select
             st.rerun()
-        
-        else:
-            st.sidebar.info("👆 Click 'Load Data' to fetch citations from NYC Open Data API")
-            st.info("👈 Select a date range and click 'Load Data' in the sidebar to begin")
-            st.stop()
-        
-else:  # Saved datasets
-    st.sidebar.markdown("### Saved Datasets")
     
-    # Get available processed files
-    processed_dir = Path(PROCESSED_DATA_DIR)
-    csv_files = sorted([f for f in processed_dir.glob("*.csv") if f.stat().st_size > 0])
-    
-    if not csv_files:
-        st.sidebar.error("No saved datasets found.")
-        st.info("💡 Switch to 'Live API' mode to load fresh data, or run the analysis scripts to generate saved datasets.")
-        st.stop()
-    
-    # Create a more readable file list
-    file_options = {}
-    for f in csv_files:
-        name = f.name
-        if "month" in name:
-            display_name = f"📅 Monthly: {name}"
-        elif "week" in name:
-            display_name = f"📆 Weekly: {name}"
-        else:
-            display_name = f"📄 {name}"
-        file_options[display_name] = f
-    
-    selected_display = st.sidebar.selectbox(
-        "Select Dataset:",
-        options=list(file_options.keys()),
-        index=0
-    )
-    
-    selected_file = file_options[selected_display]
-    
-    # Load data
-    @st.cache_data
-    def load_saved_data(filepath):
-        """Load and cache saved data"""
-        df = pd.read_csv(filepath)
-        if 'issue_date' in df.columns:
-            df['issue_date'] = pd.to_datetime(df['issue_date'])
-        if 'issue_time' in df.columns:
-            df['issue_time'] = pd.to_datetime(df['issue_time'], format='%H%M', errors='coerce')
-            df['hour'] = df['issue_time'].dt.hour
-        return df
-    
-    with st.spinner("Loading saved dataset..."):
-        df = load_saved_data(selected_file)
-        st.sidebar.success(f"✅ Loaded {len(df):,} records")
-
-# Ensure we have data before continuing
-if df is None or len(df) == 0:
-    st.warning("No data loaded. Please load data to continue.")
+    # Stop execution to show landing page
     st.stop()
 
-# Sidebar filters
-st.sidebar.markdown("---")
-st.sidebar.header("🔍 Filters")
-
-# Date range filter
-if 'issue_date' in df.columns:
-    min_date = df['issue_date'].min().date()
-    max_date = df['issue_date'].max().date()
-    
-    date_range = st.sidebar.date_input(
-        "Date Range:",
-        value=(min_date, max_date),
-        min_value=min_date,
-        max_value=max_date
-    )
-    
-    if len(date_range) == 2:
-        df = df[(df['issue_date'].dt.date >= date_range[0]) & 
-                (df['issue_date'].dt.date <= date_range[1])]
-
-# Borough filter
-if 'violation_county' in df.columns:
-    boroughs = ['All'] + sorted(df['violation_county'].dropna().unique().tolist())
-    selected_borough = st.sidebar.selectbox("Borough:", boroughs)
-    if selected_borough != 'All':
-        df = df[df['violation_county'] == selected_borough]
-
 # Top metrics
-st.markdown("---")
+st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -362,13 +372,13 @@ with col4:
     else:
         st.metric("Peak Hour", "N/A")
 
-st.markdown("---")
+st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
 
 # Create two columns for map and time chart
 map_col, time_col = st.columns([3, 2])
 
 with map_col:
-    st.subheader("🗺️ NYC Parking Citations Map")
+    st.subheader("NYC Parking Citations Map")
     
     # Determine what level we're viewing
     if st.session_state.selected_precinct:
@@ -389,7 +399,7 @@ with map_col:
     
     # Add reset button if we've drilled down
     if st.session_state.selected_borough or st.session_state.selected_precinct:
-        if st.button("🔙 Reset to NYC View"):
+        if st.button("← Reset to NYC View"):
             st.session_state.selected_borough = None
             st.session_state.selected_precinct = None
             st.rerun()
@@ -442,7 +452,7 @@ with map_col:
                         color='citations',
                         hover_name='borough',
                         hover_data={'citations': ':,', gdf_borough.index.name: False},
-                        color_continuous_scale='Reds',
+                        color_continuous_scale='RdYlGn_r',
                         mapbox_style='carto-positron',
                         center={'lat': 40.7128, 'lon': -74.0060},
                         zoom=9.5,
@@ -484,7 +494,7 @@ with map_col:
                         color='citations',
                         hover_name='Precinct',
                         hover_data={'citations': ':,', 'borough': True, gdf_merged.index.name: False},
-                        color_continuous_scale='Reds',
+                        color_continuous_scale='RdYlGn_r',
                         mapbox_style='carto-positron',
                         center={'lat': 40.7128, 'lon': -74.0060},
                         zoom=9.5,
@@ -521,7 +531,7 @@ with map_col:
                     title='Citations by Borough - Click button below to drill down',
                     labels={'county': 'Borough', 'citations': 'Number of Citations'},
                     color='citations',
-                    color_continuous_scale='Reds'
+                    color_continuous_scale='RdYlGn_r'
                 )
                 fig.update_traces(
                     text=borough_data['citations'],
@@ -554,7 +564,7 @@ with map_col:
     elif st.session_state.selected_borough and not st.session_state.selected_precinct and 'precinct' in df.columns:
         try:
             # Back button
-            if st.button("⬅️ Back to City View", key="back_btn"):
+            if st.button("← Back to City View", key="back_btn"):
                 st.session_state.selected_borough = None
                 st.session_state.selected_precinct = None
                 st.rerun()
@@ -617,7 +627,7 @@ with map_col:
                         'citations': ':,',
                         'Precinct': False  # Hide the index column
                     },
-                    color_continuous_scale='Reds',
+                    color_continuous_scale='RdYlGn_r',
                     mapbox_style='carto-positron',
                     center=center,
                     zoom=10.5,
@@ -658,7 +668,7 @@ with map_col:
                     title=f'Citations by Precinct in {st.session_state.selected_borough}',
                     labels={'precinct_str': 'Precinct', 'citations': 'Number of Citations'},
                     color='citations',
-                    color_continuous_scale='Oranges'
+                    color_continuous_scale='RdYlGn_r'
                 )
                 fig.update_traces(
                     text=precinct_data['citations'],
@@ -688,12 +698,12 @@ with map_col:
     elif st.session_state.selected_precinct and 'precinct' in df.columns:
         try:
             # Back button
-            if st.button("⬅️ Back to Borough View", key="back_precinct_btn"):
+            if st.button("← Back to Borough View", key="back_precinct_btn"):
                 st.session_state.selected_precinct = None
                 st.rerun()
             
             precinct_num = st.session_state.selected_precinct
-            st.markdown(f"## 🎯 Precinct {precinct_num} - Detailed Analysis")
+            st.markdown(f"## Precinct {precinct_num} - Detailed Analysis")
             st.caption(f"Borough: {st.session_state.selected_borough}")
             
             # Filter data for this precinct
@@ -734,7 +744,7 @@ with map_col:
                     st.metric("Top Violation", top_violation[:15] if len(top_violation) > 15 else top_violation)
                 
                 # Time distribution charts
-                st.markdown("### ⏰ Time Distribution")
+                st.markdown("### Time Distribution")
                 chart_cols = st.columns(2)
                 
                 with chart_cols[0]:
@@ -747,20 +757,18 @@ with map_col:
                             x='violation_hour',
                             y='citations',
                             title='Citations by Hour of Day',
-                            labels={'violation_hour': 'Hour (24h)', 'citations': 'Citations'},
-                            color='citations',
-                            color_continuous_scale='Blues'
+                            labels={'violation_hour': 'Hour (24h)', 'citations': 'Citations'}
+                        )
+                        fig.update_traces(
+                            marker_color='#3498db',  # Solid blue color
+                            hovertemplate='<b>Hour %{x}:00</b><br>Citations: %{y:,}<extra></extra>'
                         )
                         fig.update_layout(
                             height=300,
                             showlegend=False,
                             xaxis_title='Hour of Day',
                             yaxis_title='Citations',
-                            coloraxis_showscale=False,
                             xaxis=dict(dtick=2, range=[-0.5, 23.5])
-                        )
-                        fig.update_traces(
-                            hovertemplate='<b>Hour %{x}:00</b><br>Citations: %{y:,}<extra></extra>'
                         )
                         st.plotly_chart(fig, use_container_width=True)
                 
@@ -777,25 +785,23 @@ with map_col:
                             x='day_of_week',
                             y='citations',
                             title='Citations by Day of Week',
-                            labels={'day_of_week': 'Day', 'citations': 'Citations'},
-                            color='citations',
-                            color_continuous_scale='Greens'
+                            labels={'day_of_week': 'Day', 'citations': 'Citations'}
+                        )
+                        fig.update_traces(
+                            marker_color='#27ae60',  # Solid green color
+                            hovertemplate='<b>%{x}</b><br>Citations: %{y:,}<extra></extra>'
                         )
                         fig.update_layout(
                             height=300,
                             showlegend=False,
                             xaxis_title='',
-                            yaxis_title='Citations',
-                            coloraxis_showscale=False
-                        )
-                        fig.update_traces(
-                            hovertemplate='<b>%{x}</b><br>Citations: %{y:,}<extra></extra>'
+                            yaxis_title='Citations'
                         )
                         fig.update_xaxes(tickangle=-45)
                         st.plotly_chart(fig, use_container_width=True)
                 
                 # Top violations table
-                st.markdown("### 🚫 Top Violations")
+                st.markdown("### Top Violations")
                 if 'violation' in precinct_df.columns:
                     violation_data = precinct_df.groupby('violation').agg({
                         'summons_number': 'count',
@@ -813,7 +819,7 @@ with map_col:
             st.code(traceback.format_exc())
 
 with time_col:
-    st.subheader("⏰ Time Distribution")
+    st.subheader("Time Distribution")
     st.caption(f"For: **{selected_area}**")
     
     # Show hourly distribution for selected area
@@ -825,20 +831,18 @@ with time_col:
             x='violation_hour',
             y='citations',
             title='Citations by Hour of Day',
-            labels={'violation_hour': 'Hour (24h)', 'citations': 'Citations'},
-            color='citations',
-            color_continuous_scale='Blues'
+            labels={'violation_hour': 'Hour (24h)', 'citations': 'Citations'}
+        )
+        fig.update_traces(
+            marker_color='#3498db',  # Solid blue color
+            hovertemplate='<b>Hour %{x}:00</b><br>Citations: %{y:,}<extra></extra>'
         )
         fig.update_layout(
             height=250,
             showlegend=False,
             xaxis_title='Hour of Day',
             yaxis_title='Citations',
-            coloraxis_showscale=False,
             xaxis=dict(dtick=2, range=[-0.5, 23.5])
-        )
-        fig.update_traces(
-            hovertemplate='<b>Hour %{x}:00</b><br>Citations: %{y:,}<extra></extra>'
         )
         st.plotly_chart(fig, use_container_width=True)
     
@@ -854,26 +858,24 @@ with time_col:
             x='day_of_week',
             y='citations',
             title='Citations by Day of Week',
-            labels={'day_of_week': 'Day', 'citations': 'Citations'},
-            color='citations',
-            color_continuous_scale='Greens'
+            labels={'day_of_week': 'Day', 'citations': 'Citations'}
+        )
+        fig.update_traces(
+            marker_color='#27ae60',  # Solid green color
+            hovertemplate='<b>%{x}</b><br>Citations: %{y:,}<extra></extra>'
         )
         fig.update_layout(
             height=250,
             showlegend=False,
             xaxis_title='',
             yaxis_title='Citations',
-            coloraxis_showscale=False,
             xaxis={'tickangle': -45}
-        )
-        fig.update_traces(
-            hovertemplate='<b>%{x}</b><br>Citations: %{y:,}<extra></extra>'
         )
         st.plotly_chart(fig, use_container_width=True)
 
 # Bottom section - summary stats for selected area
-st.markdown("---")
-st.subheader(f"📊 Summary Statistics: {selected_area}")
+st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
+st.subheader(f"Summary Statistics: {selected_area}")
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -897,8 +899,8 @@ with col4:
 
 # Top violations for selected area
 if 'violation_description' in filtered_df.columns:
-    st.markdown("---")
-    st.subheader(f"🎯 Top 10 Violations in {selected_area}")
+    st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
+    st.subheader(f"Top 10 Violations in {selected_area}")
     top_violations = filtered_df['violation_description'].value_counts().head(10).reset_index()
     top_violations.columns = ['Violation', 'Count']
     
@@ -908,7 +910,7 @@ if 'violation_description' in filtered_df.columns:
         y='Violation',
         orientation='h',
         color='Count',
-        color_continuous_scale='Purples'
+        color_continuous_scale='RdYlGn_r'
     )
     fig.update_layout(
         height=400,
@@ -924,11 +926,11 @@ if 'violation_description' in filtered_df.columns:
     st.plotly_chart(fig, use_container_width=True)
 
 # Data preview
-st.markdown("---")
-with st.expander("🔍 View Raw Data"):
+st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
+with st.expander("View Raw Data"):
     st.dataframe(filtered_df.head(1000), use_container_width=True)
     st.caption(f"Showing first 1,000 of {len(filtered_df):,} records for {selected_area}")
 
 # Footer
-st.markdown("---")
+st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
 st.caption("Data source: NYC Open Data Portal | Dashboard built with Streamlit")
