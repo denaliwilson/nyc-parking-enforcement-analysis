@@ -38,6 +38,29 @@ def get_loader():
 def get_cleaner():
     return ParkingDataCleaner()
 
+@st.cache_data(ttl=3600)  # Cache for 1 hour
+def get_latest_available_date():
+    """Query NYC Open Data API to get the most recent date with data"""
+    try:
+        import requests
+        url = "https://data.cityofnewyork.us/resource/nc67-uf89.json"
+        params = {
+            '$select': 'MAX(issue_date) as max_date',
+            '$limit': 1
+        }
+        response = requests.get(url, params=params, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0 and 'max_date' in data[0]:
+                # Parse the date string
+                date_str = data[0]['max_date'].split('T')[0]
+                return datetime.strptime(date_str, '%Y-%m-%d').date()
+    except Exception as e:
+        print(f"Error fetching latest date: {e}")
+    
+    # Fallback to estimated date (today - 2 days)
+    return datetime.now().date() - timedelta(days=2)
+
 @st.cache_data
 def load_geojson():
     """Load and cache NYC precinct GeoJSON data"""
@@ -190,88 +213,128 @@ if st.session_state.data_loaded and st.session_state.df is not None:
     
     df = st.session_state.df
 else:
-    # No data loaded - show prominent date selector landing page
-    st.title("NYC Parking Citations Dashboard")
-    st.markdown("### Select Date Range to Begin")
-    st.markdown("Load NYC parking citation data to explore interactive maps and analytics.")
+    # No data loaded - show prominent date selector landing page with NYC image overlay
     
-    st.markdown("---")
+    # Custom CSS for image overlay effect
+    st.markdown("""
+    <style>
+    .hero-container {
+        position: relative;
+        width: 100%;
+        height: 600px;
+        background-image: url('https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=1600&h=600&fit=crop');
+        background-size: cover;
+        background-position: center;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+    .hero-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 100%);
+    }
+    .hero-content {
+        position: relative;
+        z-index: 2;
+        padding: 40px;
+        color: white;
+    }
+    .hero-title {
+        font-size: 3em;
+        font-weight: 700;
+        color: white;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        margin-bottom: 10px;
+    }
+    .hero-subtitle {
+        font-size: 1.3em;
+        color: #f0f0f0;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+        margin-bottom: 30px;
+    }
+    .input-panel {
+        background: rgba(255, 255, 255, 0.95);
+        padding: 30px;
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        margin-top: 30px;
+        backdrop-filter: blur(10px);
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
-    # Center the date selection in main area
+    # Hero section with image background
+    st.markdown("""
+    <div class="hero-container">
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+            <h1 class="hero-title">NYC Parking Citations Dashboard</h1>
+            <p class="hero-subtitle">Explore real-time parking enforcement data across New York City</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Get latest available date from API
+    latest_date = get_latest_available_date()
+    
+    # Input panel centered over the page
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        # Default dates
-        default_date = datetime(2025, 12, 30).date()
-        max_available_date = datetime.now().date() - timedelta(days=2)
+        st.markdown('<div class="input-panel">', unsafe_allow_html=True)
         
-        st.info("**Tip:** NYC data is typically 2-3 days behind. Try dates from 2025.")
+        # Use latest available date as default
+        default_date = latest_date
+        max_available_date = latest_date
+        
+        st.markdown(f"#### 📊 Latest Data Available: **{latest_date.strftime('%B %d, %Y')}**")
         
         # Quick selection buttons in a more prominent way
         st.markdown("#### Quick Select:")
         quick_cols = st.columns(2)
         
         with quick_cols[0]:
-            if st.button("Last Week", use_container_width=True, type="secondary"):
+            if st.button("Latest Week", use_container_width=True, type="secondary"):
                 st.session_state.quick_select = "week"
+                st.rerun()
         
         with quick_cols[1]:
-            if st.button("Last Month", use_container_width=True, type="secondary"):
+            if st.button("Latest Month", use_container_width=True, type="secondary"):
                 st.session_state.quick_select = "month"
+                st.rerun()
         
-        st.markdown("#### Or Choose Custom:")
+        st.markdown("#### Or Choose Custom Date Range:")
         
         # Handle quick select first
         if 'quick_select' in st.session_state:
             if st.session_state.quick_select == "week":
                 end_date = default_date
                 start_date = end_date - timedelta(days=6)
-                st.info(f"Will load: {start_date} to {end_date}")
-                date_option = "quick_week"
+                st.success(f"📅 Selected: **{start_date}** to **{end_date}** (7 days)")
             elif st.session_state.quick_select == "month":
                 end_date = default_date
                 start_date = end_date - timedelta(days=29)
-                st.info(f"Will load: {start_date} to {end_date}")
-                date_option = "quick_month"
+                st.success(f"📅 Selected: **{start_date}** to **{end_date}** (30 days)")
         else:
-            # Date selection
-            date_option = st.radio(
-                "Select mode:",
-                options=["Single day", "Last 3 days", "Custom range"],
-                horizontal=True
-            )
-        
-        if date_option == "Single day":
-            selected_date = st.date_input(
-                "Select date:",
-                value=default_date,
-                max_value=max_available_date,
-                help="Choose a date from 2019-2025 for best results"
-            )
-            start_date = end_date = selected_date
-            
-        elif date_option == "Last 3 days":
-            end_date = default_date
-            start_date = end_date - timedelta(days=2)
-            st.info(f"Will load: {start_date} to {end_date}")
-            
-        elif date_option == "quick_week":
-            # Already set by quick select, just pass through
-            pass
-            
-        elif date_option == "quick_month":
-            # Already set by quick select, just pass through
-            pass
-            
-        else:  # Custom range
+            # Always show date range picker
             date_range = st.date_input(
-                "Select custom range:",
-                value=(default_date - timedelta(days=2), default_date),
+                "Select start and end dates:",
+                value=(default_date - timedelta(days=6), default_date),
                 max_value=max_available_date,
-                help="NYC data is most complete for dates before today"
+                help="Click the calendar to select your start date, then select your end date"
             )
             if len(date_range) == 2:
                 start_date, end_date = date_range
+                num_days = (end_date - start_date).days + 1
+                st.info(f"📅 {num_days} day(s) selected: {start_date} to {end_date}")
+            elif len(date_range) == 1:
+                # User selected only start date so far
+                start_date = end_date = date_range[0]
+                st.warning("⚠️ Please select an end date to complete your date range")
             else:
                 start_date = end_date = default_date
         
@@ -335,6 +398,8 @@ else:
             if 'quick_select' in st.session_state:
                 del st.session_state.quick_select
             st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)  # Close input-panel
     
     # Stop execution to show landing page
     st.stop()
