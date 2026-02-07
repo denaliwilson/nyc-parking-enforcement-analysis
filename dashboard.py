@@ -254,9 +254,9 @@ def load_sample_data():
     for January 2026 and caches it.
     
     Returns:
-        DataFrame: Cleaned parking citation data for January 2026
+        DataFrame: Cleaned parking citation data for January 2026 (~860K records, Jan 1-31)
     """
-    sample_file = PROCESSED_DATA_DIR / 'parking_cleaned_citations_month_2026-01_859376-records_20260203_120623.csv'
+    sample_file = PROCESSED_DATA_DIR / 'jan_2026_sample_data.csv'
     
     # Try loading existing file first
     if sample_file.exists():
@@ -491,7 +491,7 @@ else:
     st.markdown("#### Quick Start:")
     
     # Button to load preloaded monthly data
-    if st.button("📂 Load January 2026 Sample Data (859K citations)", use_container_width=True, type="primary"):
+    if st.button("📂 Load January 2026 Sample Data (860K citations)", use_container_width=True, type="primary"):
         with st.spinner("Loading January 2026 sample data..."):
             df = load_sample_data()
             
