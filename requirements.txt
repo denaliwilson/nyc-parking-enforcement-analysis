@@ -2,34 +2,30 @@
 # Requirements file for project dependencies
 
 # Core data manipulation
-pandas>=3.0.0
-numpy>=1.24.0
+pandas>=2.0.0,<3.0.0
+numpy>=1.24.0,<2.0.0
 
 # API and HTTP requests
 requests>=2.31.0
 
 # Geospatial libraries (for precinct choropleth maps)
-geopandas>=0.14.0
-shapely>=2.0.0
-pyproj>=3.6.0
+# Note: Using specific versions that work well with Streamlit Cloud
+geopandas==0.14.1
+shapely>=2.0.0,<3.0.0
+pyproj>=3.6.0,<4.0.0
+fiona>=1.9.0
 
 # Visualization
-matplotlib>=3.10.0
-seaborn>=0.12.0
+matplotlib>=3.8.0,<4.0.0
+seaborn>=0.13.0,<1.0.0
 
 # Analysis
-scipy>=1.11.0
+scipy>=1.11.0,<2.0.0
 
 # Utilities
 python-dotenv>=1.0.0
 tqdm>=4.66.0
 
-# Optional: For Jupyter notebooks
-# jupyter>=1.0.0
-# ipykernel>=6.25.0
-# notebook>=7.0.0
-
 # Interactive dashboards
 plotly>=5.17.0
 streamlit>=1.28.0
-# folium>=0.15.0
