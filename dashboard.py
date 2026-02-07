@@ -424,67 +424,65 @@ else:
     # Get latest available date from API
     latest_date = get_latest_available_date()
     
-    # Input panel centered over the page - use container instead of columns
-    st.markdown('<div class="input-panel" style="max-width: 800px; margin: 0 auto;">', unsafe_allow_html=True)
-    
     # Use latest available date as default
     default_date = latest_date
     max_available_date = latest_date
     
     st.markdown(f"#### 📊 Latest Data Available: **{latest_date.strftime('%B %d, %Y')}**")
     
-    # Quick selection buttons in a more prominent way
-    st.markdown("#### Quick Select:")
-    quick_cols = st.columns(2)
+    st.markdown("#### Quick Start:")
     
-    with quick_cols[0]:
-        if st.button("Latest Week", use_container_width=True, type="secondary"):
-            st.session_state.quick_select = "week"
-            st.rerun()
-    
-    with quick_cols[1]:
-        if st.button("Latest Month", use_container_width=True, type="secondary"):
-            st.session_state.quick_select = "month"
-            st.rerun()
+    # Button to load preloaded monthly data
+    if st.button("📂 Load January 2026 Sample Data (859K citations)", use_container_width=True, type="primary"):
+        # Load the most recent complete month file
+        sample_file = PROCESSED_DATA_DIR / 'parking_cleaned_citations_month_2026-01_859376-records_20260203_120623.csv'
+        
+        if sample_file.exists():
+            with st.spinner("Loading preloaded sample data..."):
+                df = pd.read_csv(sample_file)
+                # Convert date columns
+                if 'issue_date' in df.columns:
+                    df['issue_date'] = pd.to_datetime(df['issue_date'])
+                
+                st.session_state.data_loaded = True
+                st.session_state.df = df
+                st.rerun()
+        else:
+            st.error("Sample data file not found. Please use custom date range below.")
     
     st.markdown("#### Or Choose Custom Date Range:")
     
-    # Handle quick select first
-    if 'quick_select' in st.session_state:
-        if st.session_state.quick_select == "week":
-            end_date = default_date
-            start_date = end_date - timedelta(days=6)
-            st.success(f"📅 Selected: **{start_date}** to **{end_date}** (7 days)")
-        elif st.session_state.quick_select == "month":
-            end_date = default_date
-            start_date = end_date - timedelta(days=29)
-            st.success(f"📅 Selected: **{start_date}** to **{end_date}** (30 days)")
+    # Always show date range picker
+    date_range = st.date_input(
+        "Select start and end dates:",
+        value=(default_date - timedelta(days=6), default_date),
+        max_value=max_available_date,
+        help="Click the calendar to select your start date, then select your end date"
+    )
+    
+    # Determine start and end dates
+    if len(date_range) == 2:
+        start_date, end_date = date_range
+        num_days = (end_date - start_date).days + 1
+        st.info(f"📅 {num_days} day(s) selected: {start_date} to {end_date}")
+        show_load_button = True
+    elif len(date_range) == 1:
+        # User selected only start date so far
+        start_date = end_date = date_range[0]
+        st.warning("⚠️ Please select an end date to complete your date range")
+        show_load_button = False
     else:
-        # Always show date range picker
-        date_range = st.date_input(
-            "Select start and end dates:",
-            value=(default_date - timedelta(days=6), default_date),
-            max_value=max_available_date,
-            help="Click the calendar to select your start date, then select your end date"
-        )
-        if len(date_range) == 2:
-            start_date, end_date = date_range
-            num_days = (end_date - start_date).days + 1
-            st.info(f"📅 {num_days} day(s) selected: {start_date} to {end_date}")
-        elif len(date_range) == 1:
-            # User selected only start date so far
-            start_date = end_date = date_range[0]
-            st.warning("⚠️ Please select an end date to complete your date range")
-        else:
-            start_date = end_date = default_date
+        start_date = end_date = default_date
+        show_load_button = True
     
     st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
     
-    # Load button - prominent and centered
-    if st.button("Load Data & Start Analysis", type="primary", use_container_width=True):
-        loading_container = st.empty()
-        
-        with loading_container.container():
+    # Load button - only show if date range is complete
+    if show_load_button:
+        if st.button("🔄 Load Custom Date Range from API", type="secondary", use_container_width=True):
+            loading_container = st.empty()
+            
+            with loading_container.container():
                 # Calculate number of days
                 num_days = (end_date - start_date).days + 1
                 
@@ -530,14 +528,12 @@ else:
                     else:
                         st.error("No data found for this date range.")
                         st.stop()
-        
-        # Clear loading messages and show success
-        loading_container.empty()
-        st.session_state.data_loaded = True
-        st.session_state.df = df
-        if 'quick_select' in st.session_state:
-            del st.session_state.quick_select
-        st.rerun()
+            
+            # Clear loading messages and show success
+            loading_container.empty()
+            st.session_state.data_loaded = True
+            st.session_state.df = df
+            st.rerun()
     
     st.markdown('</div>', unsafe_allow_html=True)  # Close input-panel
     
