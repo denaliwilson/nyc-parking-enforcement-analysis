@@ -66,19 +66,26 @@ def load_geojson():
     """Load and cache NYC precinct GeoJSON data"""
     import geopandas as gpd
     import requests
+    import json
+    from shapely.geometry import shape
     
     geospatial_dir = GEOSPATIAL_DATA_DIR
     precinct_file = geospatial_dir / 'nyc_precincts.geojson'
     
     if precinct_file.exists():
-        gdf = gpd.read_file(precinct_file)
+        # Read GeoJSON directly without geopandas I/O (avoids GDAL dependency)
+        with open(precinct_file, 'r') as f:
+            geojson_data = json.load(f)
+        gdf = gpd.GeoDataFrame.from_features(geojson_data['features'], crs='EPSG:4326')
     else:
         url = "https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/NYC_Police_Precincts/FeatureServer/0/query?where=1=1&outFields=*&outSR=4326&f=geojson"
         response = requests.get(url, timeout=30)
         if response.status_code == 200:
             geojson_data = response.json()
-            gdf = gpd.GeoDataFrame.from_features(geojson_data['features'])
-            gdf.to_file(precinct_file, driver='GeoJSON')
+            gdf = gpd.GeoDataFrame.from_features(geojson_data['features'], crs='EPSG:4326')
+            # Save for future use (using JSON instead of geopandas writer)
+            with open(precinct_file, 'w') as f:
+                json.dump(geojson_data, f)
         else:
             return None
     
