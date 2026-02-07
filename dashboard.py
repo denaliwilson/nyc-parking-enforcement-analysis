@@ -1068,11 +1068,141 @@ if 'violation_description' in filtered_df.columns:
     )
     st.plotly_chart(fig, use_container_width=True)
 
-# Data preview
-st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
-with st.expander("View Raw Data"):
-    st.dataframe(filtered_df.head(1000), use_container_width=True)
-    st.caption(f"Showing first 1,000 of {len(filtered_df):,} records for {selected_area}")
+# State analysis (vehicle registration state)
+if 'state' in filtered_df.columns:
+    st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
+    st.subheader(f"Top 15 Registration States in {selected_area}")
+    
+    # Get top 15 states
+    top_states = filtered_df['state'].value_counts().head(15).reset_index()
+    top_states.columns = ['State', 'Count']
+    
+    # Calculate percentage
+    total_citations = len(filtered_df)
+    top_states['Percentage'] = (top_states['Count'] / total_citations * 100).round(2)
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        # Bar chart
+        fig = px.bar(
+            top_states,
+            x='Count',
+            y='State',
+            orientation='h',
+            color='Count',
+            color_continuous_scale='Blues',
+            title='Citation Count by Vehicle Registration State'
+        )
+        fig.update_layout(
+            height=500,
+            showlegend=False,
+            yaxis={'categoryorder': 'total ascending'},
+            coloraxis_showscale=False,
+            xaxis_title='Number of Citations',
+            yaxis_title='State'
+        )
+        fig.update_traces(
+            texttemplate='%{x:,}',
+            textposition='outside',
+            hovertemplate='<b>%{y}</b><br>Citations: %{x:,}<extra></extra>'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        # Summary statistics
+        st.markdown("#### State Statistics")
+        st.metric("Total States", filtered_df['state'].nunique())
+        
+        if len(top_states) > 0:
+            st.metric("Top State", top_states.iloc[0]['State'])
+            st.metric("Top State %", f"{top_states.iloc[0]['Percentage']:.1f}%")
+            
+            # Show top 5 with percentages
+            st.markdown("**Top 5 States:**")
+            for idx, row in top_states.head(5).iterrows():
+                st.write(f"**{row['State']}**: {row['Count']:,} ({row['Percentage']:.1f}%)")
+
+# Issuing agency analysis
+if 'issuing_agency' in filtered_df.columns:
+    st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
+    st.subheader(f"Citations by Issuing Agency in {selected_area}")
+    
+    # Get agency breakdown
+    agency_data = filtered_df['issuing_agency'].value_counts().reset_index()
+    agency_data.columns = ['Agency', 'Count']
+    
+    # Calculate percentage
+    agency_data['Percentage'] = (agency_data['Count'] / total_citations * 100).round(2)
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        # Create visualization based on number of agencies
+        if len(agency_data) <= 10:
+            # Bar chart for few agencies
+            fig = px.bar(
+                agency_data,
+                x='Count',
+                y='Agency',
+                orientation='h',
+                color='Count',
+                color_continuous_scale='Greens',
+                title='Citations by Issuing Agency'
+            )
+            fig.update_layout(
+                height=max(300, len(agency_data) * 60),
+                showlegend=False,
+                yaxis={'categoryorder': 'total ascending'},
+                coloraxis_showscale=False,
+                xaxis_title='Number of Citations',
+                yaxis_title='Agency'
+            )
+            fig.update_traces(
+                texttemplate='%{x:,}',
+                textposition='outside',
+                hovertemplate='<b>%{y}</b><br>Citations: %{x:,}<extra></extra>'
+            )
+        else:
+            # Pie chart for many agencies (top 10 + Other)
+            top_agencies = agency_data.head(10)
+            other_count = agency_data.iloc[10:]['Count'].sum()
+            
+            if other_count > 0:
+                other_row = pd.DataFrame({'Agency': ['Other'], 'Count': [other_count], 'Percentage': [(other_count/total_citations*100)]})
+                plot_data = pd.concat([top_agencies, other_row], ignore_index=True)
+            else:
+                plot_data = top_agencies
+            
+            fig = px.pie(
+                plot_data,
+                values='Count',
+                names='Agency',
+                title='Citations by Issuing Agency (Top 10)',
+                color_discrete_sequence=px.colors.sequential.Greens_r
+            )
+            fig.update_traces(
+                textposition='inside',
+                textinfo='label+percent',
+                hovertemplate='<b>%{label}</b><br>Citations: %{value:,}<br>Percentage: %{percent}<extra></extra>'
+            )
+            fig.update_layout(height=500)
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        # Summary statistics
+        st.markdown("#### Agency Statistics")
+        st.metric("Total Agencies", filtered_df['issuing_agency'].nunique())
+        
+        if len(agency_data) > 0:
+            st.metric("Primary Agency", agency_data.iloc[0]['Agency'])
+            st.metric("Primary %", f"{agency_data.iloc[0]['Percentage']:.1f}%")
+            
+            # Show all agencies with percentages
+            st.markdown("**All Agencies:**")
+            for idx, row in agency_data.iterrows():
+                st.write(f"**{row['Agency']}**: {row['Count']:,} ({row['Percentage']:.1f}%)")
 
 # Footer
 st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
