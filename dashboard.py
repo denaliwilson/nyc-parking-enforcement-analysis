@@ -245,6 +245,64 @@ def clean_state_field(state_series):
     
     return state_series.apply(clean_state)
 
+@st.cache_data(ttl=86400)  # Cache for 24 hours
+def load_sample_data():
+    """
+    Load preloaded January 2026 sample data.
+    
+    If the file doesn't exist locally, fetches from NYC Open Data API
+    for January 2026 and caches it.
+    
+    Returns:
+        DataFrame: Cleaned parking citation data for January 2026
+    """
+    sample_file = PROCESSED_DATA_DIR / 'parking_cleaned_citations_month_2026-01_859376-records_20260203_120623.csv'
+    
+    # Try loading existing file first
+    if sample_file.exists():
+        try:
+            df = pd.read_csv(sample_file)
+            if 'issue_date' in df.columns:
+                df['issue_date'] = pd.to_datetime(df['issue_date'])
+            return df
+        except Exception as e:
+            print(f"Error loading cached file: {e}")
+    
+    # If file doesn't exist, fetch from API and cache
+    try:
+        # Fetch January 2026 data from API
+        from datetime import date
+        loader_temp = NYCParkingDataLoader()
+        cleaner_temp = ParkingDataCleaner()
+        
+        # Load January 2026 (days 1-31)
+        all_dfs = []
+        start_date = date(2026, 1, 1)
+        end_date = date(2026, 1, 31)
+        current_date = start_date
+        
+        while current_date <= end_date:
+            date_str = current_date.strftime('%Y-%m-%d')
+            day_df = loader_temp.load_by_day(date_str)
+            if day_df is not None and len(day_df) > 0:
+                all_dfs.append(day_df)
+            current_date = current_date + timedelta(days=1)
+        
+        if all_dfs:
+            raw_df = pd.concat(all_dfs, ignore_index=True)
+            df = cleaner_temp.clean_dataframe(raw_df)
+            
+            # Save for future use
+            PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
+            df.to_csv(sample_file, index=False)
+            
+            return df
+        else:
+            return None
+    except Exception as e:
+        print(f"Error fetching sample data from API: {e}")
+        return None
+
 loader = get_loader()
 cleaner = get_cleaner()
 
@@ -434,21 +492,15 @@ else:
     
     # Button to load preloaded monthly data
     if st.button("📂 Load January 2026 Sample Data (859K citations)", use_container_width=True, type="primary"):
-        # Load the most recent complete month file
-        sample_file = PROCESSED_DATA_DIR / 'parking_cleaned_citations_month_2026-01_859376-records_20260203_120623.csv'
-        
-        if sample_file.exists():
-            with st.spinner("Loading preloaded sample data..."):
-                df = pd.read_csv(sample_file)
-                # Convert date columns
-                if 'issue_date' in df.columns:
-                    df['issue_date'] = pd.to_datetime(df['issue_date'])
-                
+        with st.spinner("Loading January 2026 sample data..."):
+            df = load_sample_data()
+            
+            if df is not None and len(df) > 0:
                 st.session_state.data_loaded = True
                 st.session_state.df = df
                 st.rerun()
-        else:
-            st.error("Sample data file not found. Please use custom date range below.")
+            else:
+                st.error("Unable to load sample data. Please try custom date range below.")
     
     st.markdown("#### Or Choose Custom Date Range:")
     
