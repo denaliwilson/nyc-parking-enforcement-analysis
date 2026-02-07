@@ -187,6 +187,64 @@ def load_geojson():
     
     return gdf
 
+def clean_state_field(state_series):
+    """
+    Clean and standardize state abbreviations.
+    
+    Args:
+        state_series: Pandas series of state values
+    
+    Returns:
+        Pandas series with cleaned state values
+    """
+    # Valid US state abbreviations
+    valid_states = {
+        'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+        'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+        'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+        'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+        'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+        'DC', 'PR', 'VI', 'GU', 'AS', 'MP'  # Territories
+    }
+    
+    def clean_state(val):
+        if pd.isna(val):
+            return 'UNKNOWN'
+        
+        # Convert to string and uppercase
+        val = str(val).strip().upper()
+        
+        # Remove common prefixes/suffixes
+        val = val.replace('US-', '').replace('USA-', '')
+        
+        # Handle numeric codes or invalid entries
+        if val.isdigit() or len(val) > 3 or len(val) == 0:
+            return 'UNKNOWN'
+        
+        # Check if valid state
+        if val in valid_states:
+            return val
+        
+        # Common typos/variations
+        state_map = {
+            'N.Y': 'NY', 'N.J': 'NJ', 'PENN': 'PA', 'PENNA': 'PA',
+            'MASS': 'MA', 'CONN': 'CT', 'FLA': 'FL', 'CALIF': 'CA',
+            'N Y': 'NY', 'N J': 'NJ', 'P A': 'PA'
+        }
+        
+        if val in state_map:
+            return state_map[val]
+        
+        # If 3 characters, try first 2
+        if len(val) == 3:
+            first_two = val[:2]
+            if first_two in valid_states:
+                return first_two
+        
+        return 'UNKNOWN'
+    
+    return state_series.apply(clean_state)
+
 loader = get_loader()
 cleaner = get_cleaner()
 
@@ -270,6 +328,10 @@ if 'selected_borough' not in st.session_state:
     st.session_state.selected_borough = None
 if 'selected_precinct' not in st.session_state:
     st.session_state.selected_precinct = None
+if 'selected_state' not in st.session_state:
+    st.session_state.selected_state = None
+if 'selected_agency' not in st.session_state:
+    st.session_state.selected_agency = None
 if 'data_loaded' not in st.session_state:
     st.session_state.data_loaded = False
 if 'df' not in st.session_state:
@@ -523,28 +585,47 @@ map_col, time_col = st.columns([3, 2])
 with map_col:
     st.subheader("NYC Parking Citations Map")
     
-    # Determine what level we're viewing
+    # Determine what level we're viewing and apply filters
+    filtered_df = df.copy()
+    filter_labels = []
+    
+    # Geographic filters
     if st.session_state.selected_precinct:
         view_level = "Precinct"
         selected_area = f"Precinct {st.session_state.selected_precinct}"
-        # Convert precinct to numeric for proper filtering
-        filtered_df = df[pd.to_numeric(df['precinct'], errors='coerce') == st.session_state.selected_precinct] if 'precinct' in df.columns else df
+        filtered_df = filtered_df[pd.to_numeric(filtered_df['precinct'], errors='coerce') == st.session_state.selected_precinct] if 'precinct' in filtered_df.columns else filtered_df
     elif st.session_state.selected_borough:
         view_level = "Borough (Precincts)"
         selected_area = st.session_state.selected_borough
-        filtered_df = df[df['county'] == st.session_state.selected_borough] if 'county' in df.columns else df
+        filtered_df = filtered_df[filtered_df['county'] == st.session_state.selected_borough] if 'county' in filtered_df.columns else filtered_df
     else:
         view_level = "NYC (Boroughs)"
         selected_area = "All NYC"
-        filtered_df = df
+    
+    # State filter
+    if st.session_state.selected_state and 'state' in filtered_df.columns:
+        filtered_df = filtered_df[filtered_df['state'] == st.session_state.selected_state]
+        filter_labels.append(f"State: {st.session_state.selected_state}")
+    
+    # Agency filter
+    if st.session_state.selected_agency and 'issuing_agency' in filtered_df.columns:
+        filtered_df = filtered_df[filtered_df['issuing_agency'] == st.session_state.selected_agency]
+        filter_labels.append(f"Agency: {st.session_state.selected_agency}")
+    
+    # Update selected_area with filters
+    if filter_labels:
+        selected_area = f"{selected_area} ({', '.join(filter_labels)})"
     
     st.caption(f"Viewing: **{selected_area}** | Level: {view_level}")
     
-    # Add reset button if we've drilled down
-    if st.session_state.selected_borough or st.session_state.selected_precinct:
-        if st.button("← Reset to NYC View"):
+    # Add reset button if any filters are active
+    if (st.session_state.selected_borough or st.session_state.selected_precinct or 
+        st.session_state.selected_state or st.session_state.selected_agency):
+        if st.button("← Clear All Filters"):
             st.session_state.selected_borough = None
             st.session_state.selected_precinct = None
+            st.session_state.selected_state = None
+            st.session_state.selected_agency = None
             st.rerun()
     
     # Borough-level view (city-wide)
@@ -1073,6 +1154,9 @@ if 'state' in filtered_df.columns:
     st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
     st.subheader(f"Top 15 Registration States in {selected_area}")
     
+    # Clean state field
+    filtered_df['state'] = clean_state_field(filtered_df['state'])
+    
     # Get top 15 states
     top_states = filtered_df['state'].value_counts().head(15).reset_index()
     top_states.columns = ['State', 'Count']
@@ -1084,30 +1168,43 @@ if 'state' in filtered_df.columns:
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        # Bar chart
+        # Bar chart with solid color
         fig = px.bar(
             top_states,
             x='Count',
             y='State',
             orientation='h',
-            color='Count',
-            color_continuous_scale='Blues',
-            title='Citation Count by Vehicle Registration State'
+            title='Citation Count by Vehicle Registration State - Click a bar to filter'
+        )
+        fig.update_traces(
+            marker_color='#3498db',  # Solid blue color
+            texttemplate='%{x:,}',
+            textposition='outside',
+            hovertemplate='<b>%{y}</b><br>Citations: %{x:,}<br>Click to filter<extra></extra>'
         )
         fig.update_layout(
             height=500,
             showlegend=False,
             yaxis={'categoryorder': 'total ascending'},
-            coloraxis_showscale=False,
             xaxis_title='Number of Citations',
             yaxis_title='State'
         )
-        fig.update_traces(
-            texttemplate='%{x:,}',
-            textposition='outside',
-            hovertemplate='<b>%{y}</b><br>Citations: %{x:,}<extra></extra>'
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        
+        # Enable click interaction
+        selected = st.plotly_chart(fig, use_container_width=True, key="state_chart", on_select="rerun")
+        
+        # Handle click to filter by state
+        if selected and 'selection' in selected and 'points' in selected['selection']:
+            points = selected['selection']['points']
+            if points:
+                clicked_state = points[0]['y']
+                if clicked_state and clicked_state != 'UNKNOWN':
+                    if st.session_state.selected_state == clicked_state:
+                        # Click again to deselect
+                        st.session_state.selected_state = None
+                    else:
+                        st.session_state.selected_state = clicked_state
+                    st.rerun()
     
     with col2:
         # Summary statistics
@@ -1140,29 +1237,43 @@ if 'issuing_agency' in filtered_df.columns:
     with col1:
         # Create visualization based on number of agencies
         if len(agency_data) <= 10:
-            # Bar chart for few agencies
+            # Bar chart for few agencies with solid color
             fig = px.bar(
                 agency_data,
                 x='Count',
                 y='Agency',
                 orientation='h',
-                color='Count',
-                color_continuous_scale='Greens',
-                title='Citations by Issuing Agency'
+                title='Citations by Issuing Agency - Click a bar to filter'
+            )
+            fig.update_traces(
+                marker_color='#27ae60',  # Solid green color
+                texttemplate='%{x:,}',
+                textposition='outside',
+                hovertemplate='<b>%{y}</b><br>Citations: %{x:,}<br>Click to filter<extra></extra>'
             )
             fig.update_layout(
                 height=max(300, len(agency_data) * 60),
                 showlegend=False,
                 yaxis={'categoryorder': 'total ascending'},
-                coloraxis_showscale=False,
                 xaxis_title='Number of Citations',
                 yaxis_title='Agency'
             )
-            fig.update_traces(
-                texttemplate='%{x:,}',
-                textposition='outside',
-                hovertemplate='<b>%{y}</b><br>Citations: %{x:,}<extra></extra>'
-            )
+            
+            # Enable click interaction
+            selected = st.plotly_chart(fig, use_container_width=True, key="agency_chart_bar", on_select="rerun")
+            
+            # Handle click to filter by agency
+            if selected and 'selection' in selected and 'points' in selected['selection']:
+                points = selected['selection']['points']
+                if points:
+                    clicked_agency = points[0]['y']
+                    if clicked_agency:
+                        if st.session_state.selected_agency == clicked_agency:
+                            # Click again to deselect
+                            st.session_state.selected_agency = None
+                        else:
+                            st.session_state.selected_agency = clicked_agency
+                        st.rerun()
         else:
             # Pie chart for many agencies (top 10 + Other)
             top_agencies = agency_data.head(10)
@@ -1178,17 +1289,31 @@ if 'issuing_agency' in filtered_df.columns:
                 plot_data,
                 values='Count',
                 names='Agency',
-                title='Citations by Issuing Agency (Top 10)',
+                title='Citations by Issuing Agency (Top 10) - Click a slice to filter',
                 color_discrete_sequence=px.colors.sequential.Greens_r
             )
             fig.update_traces(
                 textposition='inside',
                 textinfo='label+percent',
-                hovertemplate='<b>%{label}</b><br>Citations: %{value:,}<br>Percentage: %{percent}<extra></extra>'
+                hovertemplate='<b>%{label}</b><br>Citations: %{value:,}<br>Percentage: %{percent}<br>Click to filter<extra></extra>'
             )
             fig.update_layout(height=500)
-        
-        st.plotly_chart(fig, use_container_width=True)
+            
+            # Enable click interaction
+            selected = st.plotly_chart(fig, use_container_width=True, key="agency_chart_pie", on_select="rerun")
+            
+            # Handle click to filter by agency
+            if selected and 'selection' in selected and 'points' in selected['selection']:
+                points = selected['selection']['points']
+                if points:
+                    clicked_agency = points[0]['label']
+                    if clicked_agency and clicked_agency != 'Other':
+                        if st.session_state.selected_agency == clicked_agency:
+                            # Click again to deselect
+                            st.session_state.selected_agency = None
+                        else:
+                            st.session_state.selected_agency = clicked_agency
+                        st.rerun()
     
     with col2:
         # Summary statistics
