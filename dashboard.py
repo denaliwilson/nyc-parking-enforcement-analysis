@@ -261,14 +261,20 @@ def load_sample_data():
     # Try loading existing file first
     if sample_file.exists():
         try:
+            st.info(f"📂 Loading from local file: {sample_file.name}")
             df = pd.read_csv(sample_file)
             if 'issue_date' in df.columns:
                 df['issue_date'] = pd.to_datetime(df['issue_date'])
+            st.success(f"✅ Loaded {len(df):,} citations from January 2026 (local file)")
             return df
         except Exception as e:
-            print(f"Error loading cached file: {e}")
+            st.warning(f"⚠️ Could not load local file: {e}")
+            st.info("Falling back to API fetch...")
     
     # If file doesn't exist, fetch from API and cache
+    st.warning("⚠️ Local sample file not found. Fetching from NYC Open Data API...")
+    st.info("This may take a few minutes. Data will be cached for future use.")
+    
     try:
         # Fetch January 2026 data from API
         from datetime import date
@@ -281,26 +287,44 @@ def load_sample_data():
         end_date = date(2026, 1, 31)
         current_date = start_date
         
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        days_total = (end_date - start_date).days + 1
+        day_count = 0
+        
         while current_date <= end_date:
+            day_count += 1
             date_str = current_date.strftime('%Y-%m-%d')
+            status_text.text(f"Fetching day {day_count}/{days_total}: {date_str}")
+            
             day_df = loader_temp.load_by_day(date_str)
             if day_df is not None and len(day_df) > 0:
                 all_dfs.append(day_df)
+            
             current_date = current_date + timedelta(days=1)
+            progress_bar.progress(day_count / days_total)
+        
+        progress_bar.empty()
+        status_text.empty()
         
         if all_dfs:
+            st.info("Cleaning and processing data...")
             raw_df = pd.concat(all_dfs, ignore_index=True)
             df = cleaner_temp.clean_dataframe(raw_df)
             
             # Save for future use
+            st.info("Saving to local cache...")
             PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
             df.to_csv(sample_file, index=False)
+            st.success(f"✅ Fetched and cached {len(df):,} citations")
             
             return df
         else:
+            st.error("❌ No data found for January 2026")
             return None
     except Exception as e:
-        print(f"Error fetching sample data from API: {e}")
+        st.error(f"❌ Error fetching sample data from API: {e}")
         return None
 
 loader = get_loader()
@@ -592,9 +616,30 @@ else:
     # Stop execution to show landing page
     st.stop()
 
+# Active Filters Banner - Prominent notification
+st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
+
+active_filters = []
+if st.session_state.selected_borough:
+    active_filters.append(f"📍 {st.session_state.selected_borough}")
+if st.session_state.selected_precinct:
+    active_filters.append(f"🏢 Precinct {st.session_state.selected_precinct}")
+if st.session_state.selected_state:
+    active_filters.append(f"🚗 State: {st.session_state.selected_state}")
+if st.session_state.selected_agency:
+    active_filters.append(f"🏛️ {st.session_state.selected_agency}")
+
+if active_filters:
+    st.info(f"**🔍 Active Filters:** {' | '.join(active_filters)} — *Click 'Clear All Filters' button in the map section to reset*")
+    st.caption("💡 **Tip:** You can drill down by clicking on the map, state bars, or agency bars. All charts update automatically with your filters!")
+else:
+    st.success("✨ **No filters active** — Showing all data. Click the map or charts to drill down!")
+
 # Top metrics
 st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
-col1, col2, col3, col4 = st.columns(4)
+
+# Responsive columns for mobile
+col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
 
 with col1:
     st.metric("Total Citations", f"{len(df):,}")
@@ -627,11 +672,11 @@ with col4:
 
 st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
 
-# Create two columns for map and time chart
-map_col, time_col = st.columns([3, 2])
+# Use responsive columns - stacks on mobile
+map_col, time_col = st.columns([3, 2], gap="medium")
 
 with map_col:
-    st.subheader("NYC Parking Citations Map")
+    st.subheader("🗺️ NYC Parking Citations Map")
     
     # Determine what level we're viewing and apply filters
     filtered_df = df.copy()
@@ -664,7 +709,22 @@ with map_col:
     if filter_labels:
         selected_area = f"{selected_area} ({', '.join(filter_labels)})"
     
-    st.caption(f"Viewing: **{selected_area}** | Level: {view_level}")
+    st.caption(f"📊 Viewing: **{selected_area}** | Level: {view_level}")
+    st.caption(f"📈 Showing {len(filtered_df):,} of {len(df):,} total citations")
+    
+    # Add prominent reset button if any filters are active
+    if (st.session_state.selected_borough or st.session_state.selected_precinct or 
+        st.session_state.selected_state or st.session_state.selected_agency):
+        col_btn1, col_btn2 = st.columns([1, 3])
+        with col_btn1:
+            if st.button("🔄 Clear All Filters", type="primary", use_container_width=True):
+                st.session_state.selected_borough = None
+                st.session_state.selected_precinct = None
+                st.session_state.selected_state = None
+                st.session_state.selected_agency = None
+                st.rerun()
+        with col_btn2:
+            st.caption("💡 Tip: Click map or charts to drill down further")
     
     # Add reset button if any filters are active
     if (st.session_state.selected_borough or st.session_state.selected_precinct or 
@@ -677,7 +737,7 @@ with map_col:
             st.rerun()
     
     # Borough-level view (city-wide)
-    if not st.session_state.selected_borough and not st.session_state.selected_precinct and 'county' in df.columns:
+    if not st.session_state.selected_borough and not st.session_state.selected_precinct and 'county' in filtered_df.columns:
         try:
             # Add toggle for view type
             view_type = st.radio(
@@ -690,8 +750,8 @@ with map_col:
             # Load cached GeoJSON
             gdf = load_geojson()
             
-            # Create borough aggregation
-            borough_data = df.groupby('county').size().reset_index(name='citations')
+            # Create borough aggregation using filtered data
+            borough_data = filtered_df.groupby('county').size().reset_index(name='citations')
             
             # Create a choropleth map using plotly
             if gdf is not None and 'Precinct' in gdf.columns:
@@ -750,8 +810,8 @@ with map_col:
                                 st.rerun()
                 else:
                     # Precinct Detail View
-                    # Merge citation data with geodata
-                    precinct_citations = df[pd.to_numeric(df['precinct'], errors='coerce').notna()].copy()
+                    # Merge citation data with geodata using filtered data
+                    precinct_citations = filtered_df[pd.to_numeric(filtered_df['precinct'], errors='coerce').notna()].copy()
                     precinct_citations['precinct'] = pd.to_numeric(precinct_citations['precinct'], errors='coerce').astype(int)
                     precinct_agg = precinct_citations.groupby('precinct').size().reset_index(name='citations')
                     
@@ -833,7 +893,7 @@ with map_col:
             st.code(traceback.format_exc())
     
     # Precinct-level view (when borough is selected, but no specific precinct)
-    elif st.session_state.selected_borough and not st.session_state.selected_precinct and 'precinct' in df.columns:
+    elif st.session_state.selected_borough and not st.session_state.selected_precinct and 'precinct' in filtered_df.columns:
         try:
             # Back button
             if st.button("← Back to City View", key="back_btn"):
@@ -844,8 +904,8 @@ with map_col:
             # Load cached GeoJSON
             gdf = load_geojson()
             
-            borough_df = df[df['county'] == st.session_state.selected_borough]
-            precinct_data = borough_df.groupby('precinct').size().reset_index(name='citations')
+            # Use filtered_df instead of df for precinct data
+            precinct_data = filtered_df.groupby('precinct').size().reset_index(name='citations')
             
             # Convert precinct to numeric and filter out invalid ones
             precinct_data['precinct'] = pd.to_numeric(precinct_data['precinct'], errors='coerce')
@@ -967,7 +1027,7 @@ with map_col:
             st.code(traceback.format_exc())
     
     # Individual Precinct Detail View
-    elif st.session_state.selected_precinct and 'precinct' in df.columns:
+    elif st.session_state.selected_precinct and 'precinct' in filtered_df.columns:
         try:
             # Back button
             if st.button("← Back to Borough View", key="back_precinct_btn"):
@@ -978,8 +1038,8 @@ with map_col:
             st.markdown(f"## Precinct {precinct_num} - Detailed Analysis")
             st.caption(f"Borough: {st.session_state.selected_borough}")
             
-            # Filter data for this precinct
-            precinct_df = df[pd.to_numeric(df['precinct'], errors='coerce') == precinct_num].copy()
+            # Use filtered_df which already has precinct filter applied
+            precinct_df = filtered_df.copy()
             
             if len(precinct_df) > 0:
                 # Summary statistics in columns
@@ -1200,182 +1260,199 @@ if 'violation_description' in filtered_df.columns:
 # State analysis (vehicle registration state)
 if 'state' in filtered_df.columns:
     st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
-    st.subheader(f"Top 15 Registration States in {selected_area}")
     
     # Clean state field
     filtered_df['state'] = clean_state_field(filtered_df['state'])
     
-    # Get top 15 states
-    top_states = filtered_df['state'].value_counts().head(15).reset_index()
-    top_states.columns = ['State', 'Count']
-    
-    # Calculate percentage
-    total_citations = len(filtered_df)
-    top_states['Percentage'] = (top_states['Count'] / total_citations * 100).round(2)
-    
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        # Bar chart with solid color
-        fig = px.bar(
-            top_states,
-            x='Count',
-            y='State',
-            orientation='h',
-            title='Citation Count by Vehicle Registration State - Click a bar to filter'
-        )
-        fig.update_traces(
-            marker_color='#3498db',  # Solid blue color
-            texttemplate='%{x:,}',
-            textposition='outside',
-            hovertemplate='<b>%{y}</b><br>Citations: %{x:,}<br>Click to filter<extra></extra>'
-        )
-        fig.update_layout(
-            height=500,
-            showlegend=False,
-            yaxis={'categoryorder': 'total ascending'},
-            xaxis_title='Number of Citations',
-            yaxis_title='State'
-        )
+    # Collapse section if state filter is active
+    if st.session_state.selected_state:
+        with st.expander(f"📊 Registration State Analysis (Filtered: {st.session_state.selected_state})", expanded=False):
+            st.info(f"Currently viewing only citations from **{st.session_state.selected_state}** registered vehicles. Click 'Clear All Filters' to see all states.")
+            st.metric("Citations from this state", f"{len(filtered_df):,}")
+    else:
+        st.subheader(f"📊 Top 15 Registration States in {selected_area}")
+        st.caption("💡 Tip: Click any bar to filter by that state")
         
-        # Enable click interaction
-        selected = st.plotly_chart(fig, use_container_width=True, key="state_chart", on_select="rerun")
+        # Get top 15 states
+        top_states = filtered_df['state'].value_counts().head(15).reset_index()
+        top_states.columns = ['State', 'Count']
         
-        # Handle click to filter by state
-        if selected and 'selection' in selected and 'points' in selected['selection']:
-            points = selected['selection']['points']
-            if points:
-                clicked_state = points[0]['y']
-                if clicked_state and clicked_state != 'UNKNOWN':
-                    if st.session_state.selected_state == clicked_state:
-                        # Click again to deselect
-                        st.session_state.selected_state = None
-                    else:
-                        st.session_state.selected_state = clicked_state
-                    st.rerun()
-    
-    with col2:
-        # Summary statistics
-        st.markdown("#### State Statistics")
-        st.metric("Total States", filtered_df['state'].nunique())
+        # Calculate percentage
+        total_citations = len(filtered_df)
+        top_states['Percentage'] = (top_states['Count'] / total_citations * 100).round(2)
         
-        if len(top_states) > 0:
-            st.metric("Top State", top_states.iloc[0]['State'])
-            st.metric("Top State %", f"{top_states.iloc[0]['Percentage']:.1f}%")
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            # Bar chart with solid color
+            fig = px.bar(
+                top_states,
+                x='Count',
+                y='State',
+                orientation='h',
+                title='Citation Count by Vehicle Registration State - Click a bar to filter'
+            )
+            fig.update_traces(
+                marker_color='#3498db',  # Solid blue color
+                texttemplate='%{x:,}',
+                textposition='outside',
+                hovertemplate='<b>%{y}</b><br>Citations: %{x:,}<br>👆 Click to filter<extra></extra>'
+            )
+            fig.update_layout(
+                height=500,
+                showlegend=False,
+                yaxis={'categoryorder': 'total ascending'},
+                xaxis_title='Number of Citations',
+                yaxis_title='State'
+            )
             
-            # Show top 5 with percentages
-            st.markdown("**Top 5 States:**")
-            for idx, row in top_states.head(5).iterrows():
-                st.write(f"**{row['State']}**: {row['Count']:,} ({row['Percentage']:.1f}%)")
+            # Enable click interaction
+            selected = st.plotly_chart(fig, use_container_width=True, key="state_chart", on_select="rerun")
+            
+            # Handle click to filter by state
+            if selected and 'selection' in selected and 'points' in selected['selection']:
+                points = selected['selection']['points']
+                if points:
+                    clicked_state = points[0]['y']
+                    if clicked_state and clicked_state != 'UNKNOWN':
+                        if st.session_state.selected_state == clicked_state:
+                            # Click again to deselect
+                            st.session_state.selected_state = None
+                        else:
+                            st.session_state.selected_state = clicked_state
+                        st.rerun()
+        
+        with col2:
+            # Summary statistics
+            st.markdown("#### State Statistics")
+            st.metric("Total States", filtered_df['state'].nunique())
+            
+            if len(top_states) > 0:
+                st.metric("Top State", top_states.iloc[0]['State'])
+                st.metric("Top State %", f"{top_states.iloc[0]['Percentage']:.1f}%")
+                
+                # Show top 5 with percentages
+                st.markdown("**Top 5 States:**")
+                for idx, row in top_states.head(5).iterrows():
+                    st.write(f"**{row['State']}**: {row['Count']:,} ({row['Percentage']:.1f}%)")
 
 # Issuing agency analysis
 if 'issuing_agency' in filtered_df.columns:
     st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
-    st.subheader(f"Citations by Issuing Agency in {selected_area}")
     
-    # Get agency breakdown
-    agency_data = filtered_df['issuing_agency'].value_counts().reset_index()
-    agency_data.columns = ['Agency', 'Count']
-    
-    # Calculate percentage
-    agency_data['Percentage'] = (agency_data['Count'] / total_citations * 100).round(2)
-    
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        # Create visualization based on number of agencies
-        if len(agency_data) <= 10:
-            # Bar chart for few agencies with solid color
-            fig = px.bar(
-                agency_data,
-                x='Count',
-                y='Agency',
-                orientation='h',
-                title='Citations by Issuing Agency - Click a bar to filter'
-            )
-            fig.update_traces(
-                marker_color='#27ae60',  # Solid green color
-                texttemplate='%{x:,}',
-                textposition='outside',
-                hovertemplate='<b>%{y}</b><br>Citations: %{x:,}<br>Click to filter<extra></extra>'
-            )
-            fig.update_layout(
-                height=max(300, len(agency_data) * 60),
-                showlegend=False,
-                yaxis={'categoryorder': 'total ascending'},
-                xaxis_title='Number of Citations',
-                yaxis_title='Agency'
-            )
-            
-            # Enable click interaction
-            selected = st.plotly_chart(fig, use_container_width=True, key="agency_chart_bar", on_select="rerun")
-            
-            # Handle click to filter by agency
-            if selected and 'selection' in selected and 'points' in selected['selection']:
-                points = selected['selection']['points']
-                if points:
-                    clicked_agency = points[0]['y']
-                    if clicked_agency:
-                        if st.session_state.selected_agency == clicked_agency:
-                            # Click again to deselect
-                            st.session_state.selected_agency = None
-                        else:
-                            st.session_state.selected_agency = clicked_agency
-                        st.rerun()
-        else:
-            # Pie chart for many agencies (top 10 + Other)
-            top_agencies = agency_data.head(10)
-            other_count = agency_data.iloc[10:]['Count'].sum()
-            
-            if other_count > 0:
-                other_row = pd.DataFrame({'Agency': ['Other'], 'Count': [other_count], 'Percentage': [(other_count/total_citations*100)]})
-                plot_data = pd.concat([top_agencies, other_row], ignore_index=True)
-            else:
-                plot_data = top_agencies
-            
-            fig = px.pie(
-                plot_data,
-                values='Count',
-                names='Agency',
-                title='Citations by Issuing Agency (Top 10) - Click a slice to filter',
-                color_discrete_sequence=px.colors.sequential.Greens_r
-            )
-            fig.update_traces(
-                textposition='inside',
-                textinfo='label+percent',
-                hovertemplate='<b>%{label}</b><br>Citations: %{value:,}<br>Percentage: %{percent}<br>Click to filter<extra></extra>'
-            )
-            fig.update_layout(height=500)
-            
-            # Enable click interaction
-            selected = st.plotly_chart(fig, use_container_width=True, key="agency_chart_pie", on_select="rerun")
-            
-            # Handle click to filter by agency
-            if selected and 'selection' in selected and 'points' in selected['selection']:
-                points = selected['selection']['points']
-                if points:
-                    clicked_agency = points[0]['label']
-                    if clicked_agency and clicked_agency != 'Other':
-                        if st.session_state.selected_agency == clicked_agency:
-                            # Click again to deselect
-                            st.session_state.selected_agency = None
-                        else:
-                            st.session_state.selected_agency = clicked_agency
-                        st.rerun()
-    
-    with col2:
-        # Summary statistics
-        st.markdown("#### Agency Statistics")
-        st.metric("Total Agencies", filtered_df['issuing_agency'].nunique())
+    # Collapse section if agency filter is active
+    if st.session_state.selected_agency:
+        with st.expander(f"🏛️ Issuing Agency Analysis (Filtered: {st.session_state.selected_agency})", expanded=False):
+            st.info(f"Currently viewing only citations issued by **{st.session_state.selected_agency}**. Click 'Clear All Filters' to see all agencies.")
+            st.metric("Citations from this agency", f"{len(filtered_df):,}")
+    else:
+        st.subheader(f"🏛️ Citations by Issuing Agency in {selected_area}")
+        st.caption("💡 Tip: Click any bar to filter by that agency")
         
-        if len(agency_data) > 0:
-            st.metric("Primary Agency", agency_data.iloc[0]['Agency'])
-            st.metric("Primary %", f"{agency_data.iloc[0]['Percentage']:.1f}%")
+        # Get agency breakdown
+        agency_data = filtered_df['issuing_agency'].value_counts().reset_index()
+        agency_data.columns = ['Agency', 'Count']
+        
+        # Calculate percentage
+        total_citations = len(filtered_df)
+        agency_data['Percentage'] = (agency_data['Count'] / total_citations * 100).round(2)
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            # Create visualization based on number of agencies
+            if len(agency_data) <= 10:
+                # Bar chart for few agencies with solid color
+                fig = px.bar(
+                    agency_data,
+                    x='Count',
+                    y='Agency',
+                    orientation='h',
+                    title='Citations by Issuing Agency - Click a bar to filter'
+                )
+                fig.update_traces(
+                    marker_color='#27ae60',  # Solid green color
+                    texttemplate='%{x:,}',
+                    textposition='outside',
+                    hovertemplate='<b>%{y}</b><br>Citations: %{x:,}<br>👆 Click to filter<extra></extra>'
+                )
+                fig.update_layout(
+                    height=max(300, len(agency_data) * 60),
+                    showlegend=False,
+                    yaxis={'categoryorder': 'total ascending'},
+                    xaxis_title='Number of Citations',
+                    yaxis_title='Agency'
+                )
+                
+                # Enable click interaction
+                selected = st.plotly_chart(fig, use_container_width=True, key="agency_chart_bar", on_select="rerun")
+                
+                # Handle click to filter by agency
+                if selected and 'selection' in selected and 'points' in selected['selection']:
+                    points = selected['selection']['points']
+                    if points:
+                        clicked_agency = points[0]['y']
+                        if clicked_agency:
+                            if st.session_state.selected_agency == clicked_agency:
+                                # Click again to deselect
+                                st.session_state.selected_agency = None
+                            else:
+                                st.session_state.selected_agency = clicked_agency
+                            st.rerun()
+            else:
+                # Pie chart for many agencies (top 10 + Other)
+                top_agencies = agency_data.head(10)
+                other_count = agency_data.iloc[10:]['Count'].sum()
+                
+                if other_count > 0:
+                    other_row = pd.DataFrame({'Agency': ['Other'], 'Count': [other_count], 'Percentage': [(other_count/total_citations*100)]})
+                    plot_data = pd.concat([top_agencies, other_row], ignore_index=True)
+                else:
+                    plot_data = top_agencies
+                
+                fig = px.pie(
+                    plot_data,
+                    values='Count',
+                    names='Agency',
+                    title='Citations by Issuing Agency (Top 10) - Click a slice to filter',
+                    color_discrete_sequence=px.colors.sequential.Greens_r
+                )
+                fig.update_traces(
+                    textposition='inside',
+                    textinfo='label+percent',
+                    hovertemplate='<b>%{label}</b><br>Citations: %{value:,}<br>Percentage: %{percent}<br>👆 Click to filter<extra></extra>'
+                )
+                fig.update_layout(height=500)
+                
+                # Enable click interaction
+                selected = st.plotly_chart(fig, use_container_width=True, key="agency_chart_pie", on_select="rerun")
+                
+                # Handle click to filter by agency
+                if selected and 'selection' in selected and 'points' in selected['selection']:
+                    points = selected['selection']['points']
+                    if points:
+                        clicked_agency = points[0]['label']
+                        if clicked_agency and clicked_agency != 'Other':
+                            if st.session_state.selected_agency == clicked_agency:
+                                # Click again to deselect
+                                st.session_state.selected_agency = None
+                            else:
+                                st.session_state.selected_agency = clicked_agency
+                            st.rerun()
+        
+        with col2:
+            # Summary statistics
+            st.markdown("#### Agency Statistics")
+            st.metric("Total Agencies", filtered_df['issuing_agency'].nunique())
             
-            # Show all agencies with percentages
-            st.markdown("**All Agencies:**")
-            for idx, row in agency_data.iterrows():
-                st.write(f"**{row['Agency']}**: {row['Count']:,} ({row['Percentage']:.1f}%)")
+            if len(agency_data) > 0:
+                st.metric("Primary Agency", agency_data.iloc[0]['Agency'])
+                st.metric("Primary %", f"{agency_data.iloc[0]['Percentage']:.1f}%")
+                
+                # Show all agencies with percentages
+                st.markdown("**All Agencies:**")
+                for idx, row in agency_data.iterrows():
+                    st.write(f"**{row['Agency']}**: {row['Count']:,} ({row['Percentage']:.1f}%)")
 
 # Footer
 st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
