@@ -1,6 +1,19 @@
 """
 NYC Parking Citations - Interactive Dashboard
-Loads data incrementally from NYC Open Data API by day
+
+A Streamlit web application for analyzing NYC parking citation data with real-time
+loading from NYC Open Data API. Features include:
+
+- Interactive date selection with latest data detection
+- Multi-level analysis (Citywide → Borough → Precinct)
+- Interactive choropleth maps with click-to-explore
+- Real-time data fetching, cleaning, and visualization
+- Automatic caching for performance optimization
+
+Author: [Your Name]
+Version: 1.0
+Last Updated: February 7, 2026
+Repository: [Your GitHub URL]
 """
 
 import streamlit as st
@@ -32,15 +45,76 @@ from src.data_cleaner import ParkingDataCleaner
 # Initialize loader and cleaner
 @st.cache_resource
 def get_loader():
+    """
+    Initialize and cache the NYC Parking Data Loader.
+    
+    Returns:
+        NYCParkingDataLoader: Configured API client for NYC Open Data
+    
+    Note:
+        Cached as a resource to persist across sessions and reruns
+    """
     return NYCParkingDataLoader()
 
 @st.cache_resource
 def get_cleaner():
+    """
+    Initialize and cache the Parking Data Cleaner.
+    
+    Returns:
+        ParkingDataCleaner: Configured data cleaning pipeline
+    
+    Note:
+        Cached as a resource to persist across sessions and reruns
+    """
     return ParkingDataCleaner()
 
 @st.cache_data(ttl=3600)  # Cache for 1 hour
 def get_latest_available_date():
-    """Query NYC Open Data API to get the most recent date with data"""
+    """
+    Query NYC Open Data API to determine the most recent date with available data.
+    
+    Returns:
+        date: Most recent date with parking citation data available
+    
+    Load and cache NYC Police precinct boundary geometries.
+    
+    Returns:
+        GeoDataFrame: NYC precinct polygons with columns:
+            - Precinct (int): Precinct number
+            - borough (str): Borough name
+            - geometry: Polygon geometries in EPSG:4326
+    
+    Data Source:
+        NYC ArcGIS REST API - Police Precincts Feature Layer
+        https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/...
+    
+    Caching Strategy:
+        1. Check for local file: data/geospatial/nyc_precincts.geojson
+        2. If not found, download from ArcGIS API
+        3. Save locally for future use
+        4. Load using pure Python (json.load) to avoid GDAL dependency
+    
+    Borough Mapping:
+        - MANHATTAN: Precincts 1-34
+        - BRONX: Precincts 40-52
+        - BROOKLYN: Precincts 60-94
+        - QUEENS: Precincts 100-115
+        - STATEN ISLAND: Precincts 120-123
+    
+    Note:
+        Uses geopandas but avoids read_file() to eliminate system
+        dependency requirements (GDAL, PROJ). This enables pure Python
+        deployment to Streamlit Cloud without apt packages.
+    
+    Note:
+        - Cached for 1 hour to avoid excessive API calls
+        - Falls back to (today - 2 days) if API query fails
+        - NYC Open Data typically has a 1-2 day delay for data availability
+    
+    API Query:
+        Executes: SELECT MAX(issue_date) FROM parking_violations
+    """
     try:
         import requests
         url = "https://data.cityofnewyork.us/resource/nc67-uf89.json"
@@ -288,70 +362,67 @@ else:
     # Get latest available date from API
     latest_date = get_latest_available_date()
     
-    # Input panel centered over the page
-    col1, col2, col3 = st.columns([1, 2, 1])
+    # Input panel centered over the page - use container instead of columns
+    st.markdown('<div class="input-panel" style="max-width: 800px; margin: 0 auto;">', unsafe_allow_html=True)
     
-    with col2:
-        st.markdown('<div class="input-panel">', unsafe_allow_html=True)
-        
-        # Use latest available date as default
-        default_date = latest_date
-        max_available_date = latest_date
-        
-        st.markdown(f"#### 📊 Latest Data Available: **{latest_date.strftime('%B %d, %Y')}**")
-        
-        # Quick selection buttons in a more prominent way
-        st.markdown("#### Quick Select:")
-        quick_cols = st.columns(2)
-        
-        with quick_cols[0]:
-            if st.button("Latest Week", use_container_width=True, type="secondary"):
-                st.session_state.quick_select = "week"
-                st.rerun()
-        
-        with quick_cols[1]:
-            if st.button("Latest Month", use_container_width=True, type="secondary"):
-                st.session_state.quick_select = "month"
-                st.rerun()
-        
-        st.markdown("#### Or Choose Custom Date Range:")
-        
-        # Handle quick select first
-        if 'quick_select' in st.session_state:
-            if st.session_state.quick_select == "week":
-                end_date = default_date
-                start_date = end_date - timedelta(days=6)
-                st.success(f"📅 Selected: **{start_date}** to **{end_date}** (7 days)")
-            elif st.session_state.quick_select == "month":
-                end_date = default_date
-                start_date = end_date - timedelta(days=29)
-                st.success(f"📅 Selected: **{start_date}** to **{end_date}** (30 days)")
+    # Use latest available date as default
+    default_date = latest_date
+    max_available_date = latest_date
+    
+    st.markdown(f"#### 📊 Latest Data Available: **{latest_date.strftime('%B %d, %Y')}**")
+    
+    # Quick selection buttons in a more prominent way
+    st.markdown("#### Quick Select:")
+    quick_cols = st.columns(2)
+    
+    with quick_cols[0]:
+        if st.button("Latest Week", use_container_width=True, type="secondary"):
+            st.session_state.quick_select = "week"
+            st.rerun()
+    
+    with quick_cols[1]:
+        if st.button("Latest Month", use_container_width=True, type="secondary"):
+            st.session_state.quick_select = "month"
+            st.rerun()
+    
+    st.markdown("#### Or Choose Custom Date Range:")
+    
+    # Handle quick select first
+    if 'quick_select' in st.session_state:
+        if st.session_state.quick_select == "week":
+            end_date = default_date
+            start_date = end_date - timedelta(days=6)
+            st.success(f"📅 Selected: **{start_date}** to **{end_date}** (7 days)")
+        elif st.session_state.quick_select == "month":
+            end_date = default_date
+            start_date = end_date - timedelta(days=29)
+            st.success(f"📅 Selected: **{start_date}** to **{end_date}** (30 days)")
+    else:
+        # Always show date range picker
+        date_range = st.date_input(
+            "Select start and end dates:",
+            value=(default_date - timedelta(days=6), default_date),
+            max_value=max_available_date,
+            help="Click the calendar to select your start date, then select your end date"
+        )
+        if len(date_range) == 2:
+            start_date, end_date = date_range
+            num_days = (end_date - start_date).days + 1
+            st.info(f"📅 {num_days} day(s) selected: {start_date} to {end_date}")
+        elif len(date_range) == 1:
+            # User selected only start date so far
+            start_date = end_date = date_range[0]
+            st.warning("⚠️ Please select an end date to complete your date range")
         else:
-            # Always show date range picker
-            date_range = st.date_input(
-                "Select start and end dates:",
-                value=(default_date - timedelta(days=6), default_date),
-                max_value=max_available_date,
-                help="Click the calendar to select your start date, then select your end date"
-            )
-            if len(date_range) == 2:
-                start_date, end_date = date_range
-                num_days = (end_date - start_date).days + 1
-                st.info(f"📅 {num_days} day(s) selected: {start_date} to {end_date}")
-            elif len(date_range) == 1:
-                # User selected only start date so far
-                start_date = end_date = date_range[0]
-                st.warning("⚠️ Please select an end date to complete your date range")
-            else:
-                start_date = end_date = default_date
+            start_date = end_date = default_date
+    
+    st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
+    
+    # Load button - prominent and centered
+    if st.button("Load Data & Start Analysis", type="primary", use_container_width=True):
+        loading_container = st.empty()
         
-        st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
-        
-        # Load button - prominent and centered
-        if st.button("Load Data & Start Analysis", type="primary", use_container_width=True):
-            loading_container = st.empty()
-            
-            with loading_container.container():
+        with loading_container.container():
                 # Calculate number of days
                 num_days = (end_date - start_date).days + 1
                 
@@ -397,16 +468,16 @@ else:
                     else:
                         st.error("No data found for this date range.")
                         st.stop()
-            
-            # Clear loading messages and show success
-            loading_container.empty()
-            st.session_state.data_loaded = True
-            st.session_state.df = df
-            if 'quick_select' in st.session_state:
-                del st.session_state.quick_select
-            st.rerun()
         
-        st.markdown('</div>', unsafe_allow_html=True)  # Close input-panel
+        # Clear loading messages and show success
+        loading_container.empty()
+        st.session_state.data_loaded = True
+        st.session_state.df = df
+        if 'quick_select' in st.session_state:
+            del st.session_state.quick_select
+        st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)  # Close input-panel
     
     # Stop execution to show landing page
     st.stop()

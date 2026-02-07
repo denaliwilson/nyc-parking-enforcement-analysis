@@ -1,43 +1,46 @@
-# NYC Parking Citations Analysis
+# NYC Parking Citations Analysis Dashboard
 
-A data analysis project focused on temporal patterns in New York City parking violations using the NYC Open Data API.
+An interactive web dashboard for analyzing New York City parking citations with real-time data from the NYC Open Data API. Explore temporal patterns, geographic distributions, and enforcement trends across all five boroughs.
+
+🌐 **[Live Dashboard](https://your-app-url.streamlit.app)** | 📊 **[Data Source](https://data.cityofnewyork.us/resource/nc67-uf89)**
 
 ## Project Overview
 
-This project analyzes millions of parking citations issued in New York City to uncover temporal and behavioral patterns in parking enforcement. The analysis emphasizes time-based trends, violation types, and borough-level summaries.
+This project provides an interactive Streamlit dashboard to analyze millions of parking citations issued in New York City. Users can select custom date ranges, explore borough-level patterns, drill down to individual precincts, and visualize enforcement trends through interactive maps and charts.
 
 ## Features
 
-### Automated Data Pipeline
-- **API Integration**: Direct connection to NYC Open Data (10M+ records daily)
-- **Smart Data Cleaning**: Automatic validation, deduplication, and quality checks
-- **Flexible Date Ranges**: Download data by day, week, or month
+### 🎯 Interactive Dashboard
+- **Real-time Data Loading**: Fetch latest citations directly from NYC Open Data API
+- **Custom Date Ranges**: Select any date range or use quick options (last week/month)
+- **Latest Data Detection**: Automatically identifies most recent available data
+- **Responsive Design**: Modern UI with custom theming and gradient accents
 
-### Weekly Analysis Tool (`generate_weekly_analysis.py`)
-- Interactive date selection with validation
-- Analyzes 7 consecutive days (~190k-300k records)
-- Execution time: ~50 seconds
-- **6 Visualizations**:
-  1. Daily citation trend line chart
-  2. Day of week distribution
-  3. Top 20 violation types
-  4. Hourly distribution pattern
-  5. Borough breakdown (pie chart)
-  6. Fine amount distribution
+### 📊 Multi-Level Analysis
+- **Citywide Overview**: Total citations, fines, and key metrics at a glance
+- **Borough Comparison**: Compare enforcement patterns across all five boroughs
+- **Precinct Drill-Down**: Click any precinct on the interactive map for detailed analysis
+- **Time-Based Insights**: Daily trends, hourly patterns, and day-of-week distributions
 
-### Monthly Analysis Tool (`generate_monthly_analysis.py`)
-- Full month analysis (28-31 days)
-- Processes 800k-1.2M+ records per month
-- Execution time: 2-10 minutes depending on volume
-- **8 Visualizations** (all weekly charts plus):
-  7. Top 20 precincts by citation count (bar chart)
-  8. **Geographic precinct map** - Color-coded choropleth showing spatial distribution
+### 🗺️ Geographic Visualization
+- **Interactive Choropleth Maps**: Color-coded precinct maps showing citation density
+- **Click-to-Explore**: Click any precinct to view detailed statistics
+- **Red-Green Color Scale**: Intuitive visualization from low (green) to high (red) enforcement
+- **Borough-Level Zoom**: Automatic map centering for focused analysis
 
-### HTML Reports
-- Self-contained reports with embedded graphs (base64 PNG)
-- Detailed statistics: total citations, daily averages, retention rates
-- Data quality metrics and cleaning summaries
-- Processing time breakdowns
+### 📈 Rich Visualizations
+- Daily citation trend lines
+- Top violation types (bar charts)
+- Hourly enforcement patterns
+- Day of week distributions
+- Fine amount analysis
+- Vehicle registration state breakdowns
+- Top streets by citations
+
+### 🔧 Analysis Tools (Command Line)
+- **Weekly Analysis** (`generate_weekly_analysis.py`): Analyze 7-day periods (~50 seconds)
+- **Monthly Analysis** (`generate_monthly_analysis.py`): Full month reports with 8+ visualizations
+- **HTML Reports**: Self-contained reports with embedded charts and statistics
 
 ## Dataset
 
@@ -56,20 +59,30 @@ This project analyzes millions of parking citations issued in New York City to u
 
 ## Technologies Used
 
-**Programming & Analysis**
-- Python 3.13+
-- Pandas 3.0+ for data manipulation
-- NumPy for numerical operations
+**Frontend & Dashboard**
+- Streamlit 1.28+ for interactive web application
+- Plotly 5.17+ for interactive visualizations
+- Custom CSS for enhanced styling and theming
 
-**Visualization**
-- Matplotlib 3.10+ for charts and graphs
-- GeoPandas for choropleth maps
-- Seaborn for statistical visualizations
+**Data Processing**
+- Python 3.9+
+- Pandas 2.x for data manipulation (Streamlit compatible)
+- NumPy 1.24+ for numerical operations
+
+**Geospatial Analysis**
+- GeoPandas 0.14.1 for geographic data handling
+- Shapely 2.x for geometry operations
+- PyProj 3.6+ for coordinate transformations
 
 **API Integration**
-- Requests for HTTP/REST API calls
+- Requests library for NYC Open Data API
 - NYC Open Data Socrata API (nc67-uf89)
 - NYC ArcGIS REST API for precinct boundaries
+
+**Deployment**
+- Streamlit Community Cloud (free hosting)
+- Git-based continuous deployment
+- No system dependencies required
 
 ## Getting Started
 
@@ -101,79 +114,122 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. **Set up directories**
-```bash
-mkdir -p data/{raw,processed} outputs/{figures,reports}
-```
-
-5. **(Optional) Get API token**
-- Visit [NYC Open Data](https://data.cityofnewyork.us/)
-- Create account and generate app token
-- Add to `.env` file: `NYC_APP_TOKEN=your_token_here`
-
 ### Quick Start
 
-**Run Weekly Analysis** (7-day analysis with visualizations):
+#### Option 1: Run the Dashboard (Recommended)
+
+Launch the interactive web dashboard:
+
+```bash
+streamlit run dashboard.py
+```
+
+The dashboard will open in your browser at `http://localhost:8501`
+
+**Features:**
+- Select custom date ranges or use quick options (last week/month)
+- Automatically fetches and cleans data from NYC Open Data
+- Interactive maps with click-to-explore precinct details
+- Real-time visualizations and statistics
+
+#### Option 2: Generate Analysis Reports
+
+**Weekly Analysis** (7-day period, ~50 seconds):
 ```bash
 python src/generate_weekly_analysis.py
 ```
-You'll be prompted to enter a start date (YYYY-MM-DD format). The script generates an HTML report with 6 visualizations.
 
-**Run Monthly Analysis** (full month analysis with geographic map):
+**Monthly Analysis** (full month with geographic map, 2-10 minutes):
 ```bash
 python src/generate_monthly_analysis.py
 ```
-You'll be prompted to enter year and month. The script generates an HTML report with 8 visualizations including a color-coded precinct map.
 
-**Analysis Reports** are saved to:
-```
-outputs/reports/analysis_report_citations_week_*.html
-outputs/reports/analysis_report_citations_month_*.html
-```
+Reports are saved to `outputs/reports/` as self-contained HTML files.
+
+### Deployment
+
+Deploy your own dashboard to Streamlit Community Cloud:
+
+1. Push your code to GitHub
+2. Go to [share.streamlit.io](https://share.streamlit.io)
+3. Connect your repository
+4. Deploy with one click
+
+See [SETUP.md](SETUP.md) for detailed deployment instructions.
 
 ## Project Structure
 
 ```
-nyc-parking-analysis/
+nyc-parking-enforcement-analysis/
+├── dashboard.py                # Main Streamlit dashboard application
+├── requirements.txt            # Python dependencies (Streamlit compatible)
+├── packages.txt                # System packages (empty - pure Python)
+├── .streamlit/
+│   └── config.toml            # Dashboard theme configuration
 ├── data/
-│   ├── raw/                    # Raw API responses
-│   └── processed/              # Cleaned datasets
-├── notebooks/
-│   ├── 01_data_exploration.ipynb
-│   ├── 02_temporal_analysis.ipynb
-│   └── 03_visualization.ipynb
+│   ├── raw/                   # Raw API responses (auto-generated)
+│   ├── processed/             # Cleaned datasets (auto-generated)
+│   └── geospatial/            # NYC precinct boundaries (GeoJSON)
 ├── src/
-│   ├── data_fetcher.py         # API interaction
-│   └── data_cleaner.py         # Data preprocessing
+│   ├── config.py              # Configuration and constants
+│   ├── data_loader.py         # NYC Open Data API integration
+│   ├── data_cleaner.py        # Data cleaning and validation
+│   ├── generate_weekly_analysis.py    # CLI: 7-day reports
+│   ├── generate_monthly_analysis.py   # CLI: monthly reports
+│   └── diagnostic.py          # System diagnostics
 ├── outputs/
-│   ├── figures/                # Charts and graphs
-│   └── reports/                # Analysis reports
-├── requirements.txt
-├── README.md
-└── .gitignore
+│   ├── figures/               # Generated charts (for reports)
+│   └── reports/               # HTML analysis reports
+├── notebooks/                 # Jupyter notebooks for exploration
+└── Documentation/
+    ├── README.md              # This file
+    ├── SETUP.md               # Installation and deployment guide
+    ├── DATA_DICTIONARY.md     # Field definitions
+    ├── DATA_SOURCES.md        # API documentation
+    └── PROJECT_STRUCTURE.md   # Detailed structure
 ```
 
-## Analysis Objectives
+## Usage Examples
 
-### Phase 1: Exploratory Data Analysis
-- [ ] Data quality assessment
-- [ ] Temporal pattern analysis (hourly, daily, seasonal)
-- [ ] Borough-level comparisons
-- [ ] Violation type distribution
+### Dashboard Navigation
 
-### Phase 2: Temporal and Categorical Analysis
-- [ ] Time-of-day and day-of-week patterns
-- [ ] Seasonal and year-over-year trends
-- [ ] Agency and violation category comparisons
+1. **Landing Page**: Select date range using quick options or custom calendar
+2. **Citywide View**: Overview metrics and borough comparison charts
+3. **Borough View**: Click any borough to see precinct-level map
+4. **Precinct View**: Click any precinct on map for detailed statistics
 
-### Phase 3: Advanced Analytics
-- [ ] Time series forecasting
-- [ ] Violation type clustering
-- [ ] Interactive dashboard development
+### Analysis Workflow
 
-## Key Findings
+```python
+# Example: Programmatic data loading
+from src.data_loader import NYCParkingDataLoader
+from src.data_cleaner import ParkingDataCleaner
 
-*[To be updated as analysis progresses]*
+# Initialize
+loader = NYCParkingDataLoader()
+cleaner = ParkingDataCleaner()
+
+# Load and clean data
+raw_df = loader.load_by_day('2026-01-15')
+clean_df = cleaner.clean_dataframe(raw_df)
+
+print(f"Loaded {len(clean_df):,} citations")
+```
+
+### Data Output
+
+All processed data is automatically saved to `data/processed/` with timestamps:
+- `parking_cleaned_citations_week_YYYY-MM-DD_to_YYYY-MM-DD_*.csv`
+- `parking_cleaned_citations_month_YYYY-MM_*.csv`
+
+## Key Features & Insights
+
+- **Real-time Data**: Always access the latest NYC parking citation data
+- **Multi-level Analysis**: City → Borough → Precinct drill-down
+- **Geographic Patterns**: Identify enforcement hotspots via interactive maps
+- **Temporal Trends**: Understand daily, hourly, and weekly patterns
+- **Violation Analysis**: Compare fine amounts and violation types
+- **Deployment Ready**: One-click deploy to Streamlit Cloud
 
 ## Contributing
 

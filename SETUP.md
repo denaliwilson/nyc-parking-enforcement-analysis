@@ -3,10 +3,10 @@
 ## Quick Start
 
 ### Prerequisites
-- Python 3.13+
-- Git
+- Python 3.9 or higher (Python 3.11+ recommended)
+- Git (for version control)
 - pip (Python package manager)
-- Internet connection (for data API access)
+- Internet connection (for NYC Open Data API access)
 
 ### Installation Steps
 
@@ -20,12 +20,12 @@ cd nyc-parking-enforcement-analysis
 #### 2. Create Virtual Environment
 ```bash
 # Windows
-python -m venv .venv
-.\.venv\Scripts\activate
+python -m venv venv
+.\venv\Scripts\activate
 
 # macOS/Linux
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv venv
+source venv/bin/activate
 ```
 
 #### 3. Install Dependencies
@@ -33,19 +33,43 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-If you get encoding errors during installation (Windows), ensure you're using the virtual environment:
+**Note**: If you encounter errors on Windows, ensure your virtual environment is activated:
 ```bash
-# Windows - Make sure .venv is active first
-.\.venv\Scripts\pip.exe install -r requirements.txt
+.\venv\Scripts\python.exe -m pip install --upgrade pip
+.\venv\Scripts\pip.exe install -r requirements.txt
 ```
 
 ---
 
-## Running the Project
+## Running the Dashboard
 
-### Quick Start - Analysis Tools
+### Launch the Interactive Dashboard
 
-The fastest way to analyze NYC parking data:
+The Streamlit dashboard is the primary interface for exploring NYC parking citation data:
+
+```bash
+# Ensure virtual environment is activated
+streamlit run dashboard.py
+```
+
+The dashboard will automatically:
+1. Open in your default browser at `http://localhost:8501`
+2. Detect the latest available data from NYC Open Data
+3. Provide interactive date selection and data loading
+4. Generate real-time visualizations and maps
+
+**Dashboard Features:**
+- ✅ Select custom date ranges or quick options (last week/month)
+- ✅ Real-time data fetching and cleaning
+- ✅ Interactive choropleth maps with click-to-explore
+- ✅ Multi-level analysis (City → Borough → Precinct)
+- ✅ Automatic caching for performance
+
+### Stopping the Dashboard
+
+Press `Ctrl+C` in the terminal to stop the Streamlit server.
+
+---
 
 #### Weekly Analysis (7 days, ~50 seconds)
 ```bash
@@ -73,6 +97,30 @@ python src/generate_weekly_analysis.py
 
 # Run monthly analysis
 python src/generate_monthly_analysis.py
+## Command Line Analysis Tools (Optional)
+
+For generating standalone HTML reports without the dashboard:
+
+#### Weekly Analysis (7 days, ~50 seconds)
+```bash
+# Activate virtual environment first
+python src/generate_weekly_analysis.py
+```
+**Prompts:**
+- Enter start date in YYYY-MM-DD format (e.g., 2025-12-30)
+- Confirm to proceed
+
+**Output:** `outputs/reports/analysis_report_citations_week_YYYY-MM-DD_to_YYYY-MM-DD_TIMESTAMP.html`
+
+**Includes:**
+- 6 visualizations (daily trend, day of week, violations, hourly, borough, fines)
+- ~190k-300k records analyzed
+- Data quality metrics
+
+#### Monthly Analysis (28-31 days, 2-10 minutes)
+```bash
+# Activate virtual environment first
+python src/generate_monthly_analysis.py
 ```
 **Prompts:**
 - Enter year (YYYY format, e.g., 2026)
@@ -89,38 +137,58 @@ python src/generate_monthly_analysis.py
 
 ---
 
-### Option 1: Manual Data Pipeline
+## Deployment to Streamlit Cloud
 
-Run individual components step-by-step:
+### Prerequisites
+1. GitHub account
+2. Repository pushed to GitHub
+3. Streamlit Community Cloud account (free at [share.streamlit.io](https://share.streamlit.io))
 
-#### Step 1: Check System Configuration
-```bash
-.\.venv\Scripts\python.exe src/diagnostic.py
-```
-This verifies:
-- Python version and location
-- Required libraries installed
-- Project structure
-- API connectivity
-- Module imports
+### Deployment Steps
 
-#### Step 2: Load Raw Data
-```bash
-.\.venv\Scripts\python.exe src/data_loader.py
-```
-Output: `data/raw/nyc_parking_<records>_<timestamp>.csv`
+1. **Prepare Your Repository**
+   - Ensure `requirements.txt` is up to date
+   - Verify `packages.txt` is empty (no system dependencies needed)
+   - Make sure `.streamlit/config.toml` exists for theme settings
+   - Push all changes to GitHub
 
-#### Step 3: Clean and Process Data
-```bash
-.\.venv\Scripts\python.exe src/data_cleaner.py
-```
-Output: `data/processed/parking_cleaned_<records>_<timestamp>.csv`
+2. **Deploy to Streamlit Cloud**
+   - Go to [share.streamlit.io](https://share.streamlit.io)
+   - Click "New app"
+   - Select your GitHub repository
+   - Set main file path: `dashboard.py`
+   - Click "Deploy"
 
-### Option 2: Step-by-Step (Legacy)
+3. **Monitor Deployment**
+   - Watch the deployment logs
+   - Initial deployment takes 2-5 minutes
+   - Your app will be available at `https://your-app-name.streamlit.app`
 
----
+4. **Troubleshooting**
+   - **If deployment fails**: Check the logs for errors
+   - **Dependency issues**: Ensure `requirements.txt` uses compatible versions
+   - **Environment reset**: Delete and recreate the app for a fresh environment
+   - **Data loading errors**: Verify NYC Open Data API is accessible
+
+### Automatic Redeployment
+
+Once deployed, Streamlit Cloud automatically redeploys when you push to GitHub:
+```bash\ngit add .\ngit commit -m \"Update dashboard\"\ngit push\n```\n\nThe app will automatically update within 1-2 minutes.\n\n---
 
 ## Configuration
+
+### Dashboard Theme Customization
+
+Edit `.streamlit/config.toml` to customize colors and appearance:
+
+```toml
+[theme]
+primaryColor = \"#FF6B6B\"              # Accent color for buttons and highlights
+backgroundColor = \"#F8F9FA\"           # Main background color
+secondaryBackgroundColor = \"#E9ECEF\" # Sidebar and secondary elements
+textColor = \"#2C3E50\"                 # Primary text color
+font = \"sans serif\"                  # Font family
+```
 
 ### API Configuration
 Edit `src/config.py` to customize:

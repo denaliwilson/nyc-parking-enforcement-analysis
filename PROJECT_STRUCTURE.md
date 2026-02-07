@@ -6,100 +6,166 @@
 nyc-parking-enforcement-analysis/
 ├── .git/                           # Git version control
 ├── .gitignore                      # Files to ignore in git
-├── .venv/                          # Virtual environment (auto-created)
+├── venv/                           # Virtual environment (auto-created, not tracked)
 │   ├── Scripts/                    # Executables (python.exe, pip.exe)
 │   └── Lib/                        # Python packages
 │
-├── data/                           # Data storage
+├── .streamlit/                     # Streamlit configuration
+│   └── config.toml                 # Dashboard theme and settings
+│
+├── dashboard.py                    # Main Streamlit dashboard application (1000+ lines)
+│   └── Features: Real-time data loading, interactive maps, multi-level drill-down
+│
+├── requirements.txt                # Python dependencies (Streamlit Cloud compatible)
+│   └── Pandas 2.x, GeoPandas, Plotly, Streamlit, etc.
+│
+├── packages.txt                    # System packages (empty - pure Python deployment)
+│
+├── data/                           # Data storage (auto-created by scripts)
 │   ├── raw/                        # Raw downloaded data (not modified)
-│   │   ├── parking_raw_*.csv       # Raw API downloads
-│   │   └── *.csv                   # Additional raw data files
+│   │   └── parking_raw_*.csv       # Raw API downloads (temporary)
 │   │
 │   ├── processed/                  # Cleaned, analysis-ready data
 │   │   ├── parking_cleaned_citations_week_*.csv
-│   │   │   # 7-day combined datasets from weekly analysis
+│   │   │   # 7-day combined datasets from analysis
 │   │   ├── parking_cleaned_citations_month_*.csv
-│   │   │   # 28-31 day combined datasets from monthly analysis
+│   │   │   # 28-31 day combined datasets from analysis
 │   │   └── parking_cleaned_*_records_*.csv
-│   │       # Individual cleaned datasets from data_cleaner.py
+│   │       # Individual cleaned datasets
 │   │
-│   ├── archive/                    # Archived processed files
+│   ├── archive/                    # Archived processed files (manual archiving)
 │   │   └── Older versions of processed datasets
 │   │
-│   ├── geospatial/                 # Geographic data
-│   │   └── nyc_precincts.geojson  # NYC precinct boundaries (optional)
-│   │
-│   └── dof_parking_camera_violations.schema.json
-│       # API schema documentation from NYC Open Data
+│   └── geospatial/                 # Geographic data
+│       └── nyc_precincts.geojson  # NYC precinct boundaries (auto-downloaded)
+│           # Downloaded from NYC ArcGIS API on first use
 │
-├── src/                            # Source code
+├── src/                            # Source code modules
 │   ├── __pycache__/                # Python cache (auto-generated, not tracked)
 │   │
-│   ├── config.py                   # Configuration settings
-│   │   └── Contains: paths, API settings, field definitions, defaults
+│   ├── config.py                   # Configuration settings and constants
+│   │   └── Contains: API URLs, data paths, field definitions
 │   │
-│   ├── data_loader.py              # Download and load data from API
+│   ├── data_loader.py              # NYC Open Data API integration (500+ lines)
 │   │   └── Classes: NYCParkingDataLoader
-│   │   └── Functions: load_by_day(), save_data(), display_summary()
+│   │   └── Methods: load_by_day(), load_by_date_range(), save_data()
+│   │   └── Features: Pagination, rate limiting, error handling
 │   │
-│   ├── data_cleaner.py             # Clean and process data
+│   ├── data_cleaner.py             # Data cleaning and validation (900+ lines)
 │   │   └── Classes: ParkingDataCleaner
-│   │   └── Methods: check_data_quality(), clean_dates(), clean_numeric_fields()
+│   │   └── Methods: clean_dataframe(), check_data_quality(), clean_dates()
+│   │   └── Features: Type conversion, duplicate removal, validation
 │   │
-│   ├── generate_weekly_analysis.py # Weekly analysis with 6 visualizations
+│   ├── generate_weekly_analysis.py # CLI: Weekly analysis with 6 visualizations
 │   │   └── Interactive 7-day analysis tool
-│   │   └── Functions: get_week_dates(), fetch_week_data(), generate_graphs()
 │   │   └── Output: HTML reports with embedded charts
 │   │   └── Run: python src/generate_weekly_analysis.py
 │   │
-│   ├── generate_monthly_analysis.py # Monthly analysis with 8 visualizations
+│   ├── generate_monthly_analysis.py # CLI: Monthly analysis with 8+ visualizations
 │   │   └── Interactive full-month analysis tool
-│   │   └── Functions: get_month_dates(), fetch_month_data(), generate_graphs()
-│   │   └── Includes: Precinct bar chart + geographic choropleth map
+│   │   └── Includes: Choropleth maps and precinct analysis
 │   │   └── Output: HTML reports with embedded charts and maps
 │   │   └── Run: python src/generate_monthly_analysis.py
 │   │
-│   ├── preliminary_analysis.py     # Initial exploratory analysis
+│   ├── preliminary_analysis.py     # Initial exploratory analysis (legacy)
 │   │   └── Basic statistical analysis and data profiling
 │   │
-│   ├── diagnostic.py               # System diagnostics
+│   ├── diagnostic.py               # System diagnostics and verification
 │   │   └── Checks: Python version, dependencies, API access
 │   │   └── Run: python src/diagnostic.py
 │   │
-│   └── tests/                      # Test suite
-│       └── Unit tests for data loading and cleaning
+│   └── tests/                      # Test suite (unit tests)
+│       ├── test_cleaner.py         # Tests for data cleaning
+│       └── __pycache__/            # Test cache
 │
 ├── outputs/                        # Analysis outputs and results
-│   ├── reports/                    # Analysis reports and summaries
+│   ├── reports/                    # HTML analysis reports
 │   │   ├── analysis_report_citations_week_*.html
-│   │   │   └── Weekly analysis reports with 6 visualizations
+│   │   │   └── Weekly reports (6 visualizations, embedded charts)
 │   │   └── analysis_report_citations_month_*.html
-│   │       └── Monthly analysis reports with 8 visualizations + map
+│   │       └── Monthly reports (8 visualizations + choropleth map)
 │   │
-│   └── figures/                    # Charts, graphs, and visualizations
-│       └── [Graphs embedded in HTML reports as base64 PNG]
+│   └── figures/                    # Standalone figures (if generated)
+│       └── Charts exported as PNG (embedded in HTML reports)
 │
-├── notebooks/                      # Jupyter notebooks for exploration
-│   └── [future notebook files]
-│   └── Example: analysis.ipynb, visualization.ipynb
+├── notebooks/                      # Jupyter notebooks (optional exploration)
+│   └── For ad-hoc analysis and prototyping
 │
 ├── Documentation Files
-│   ├── README.md                   # Project overview and quick start
+│   ├── README.md                   # Project overview, features, quick start
+│   ├── SETUP.md                    # Installation, deployment, configuration
+│   ├── PROJECT_STRUCTURE.md        # This file - directory layout
 │   ├── DATA_DICTIONARY.md          # Field definitions and data types
-│   ├── SETUP.md                    # Installation and setup instructions
-│   ├── DATA_SOURCES.md             # Data source documentation
-│   ├── PROJECT_STRUCTURE.md        # This file
-│   ├── CHANGELOG.md                # Version history and changes
-│   └── CONTRIBUTING.md             # Contributing guidelines (optional)
+│   ├── DATA_SOURCES.md             # API documentation and endpoints
+│   └── LICENSE                     # Project license
 │
-├── Configuration Files
-│   ├── requirements.txt             # Python package dependencies
-│   ├── .gitignore                  # Git ignore patterns
-│   └── .env                        # Environment variables (if needed)
-│
-└── License & Metadata
-    └── LICENSE                     # License file
+└── Configuration Files
+    ├── .gitignore                  # Git ignore patterns
+    └── .env                        # Environment variables (optional, not tracked)
 ```
+
+---
+
+## Key Components
+
+### Dashboard Application
+
+**`dashboard.py`** - Interactive Streamlit web application (1006 lines)
+
+**Architecture:**
+- **Landing Page**: Hero image with NYC skyline, date selection interface
+- **Data Loading**: Real-time API fetching with progress indicators
+- **Multi-level Views**: Citywide → Borough → Precinct drill-down
+- **Caching**: Smart caching for performance (`@st.cache_data`, `@st.cache_resource`)
+
+**Key Functions:**
+```python
+get_latest_available_date()     # Query API for latest data
+load_geojson()                   # Load NYC precinct boundaries
+create_choropleth_map()         # Generate interactive maps
+handle_precinct_selection()     # Click interaction logic
+```
+
+**Technologies:**
+- Streamlit for UI framework
+- Plotly for interactive charts and maps
+- Pandas for data manipulation
+- GeoPandas for geographic operations
+
+### Data Pipeline Modules
+
+**`src/config.py`** - Configuration and constants
+- API URLs and endpoints
+- Data directory paths
+- Field definitions and essential columns
+- Default parameters
+
+**`src/data_loader.py`** - NYC Open Data API integration
+- Handles API authentication and rate limiting
+- Supports pagination for large datasets
+- Implements retry logic and error handling
+- Can load by day, week, month, or custom range
+
+**`src/data_cleaner.py`** - Data cleaning and validation
+- Type conversions (dates, numerics, categoricals)
+- Duplicate detection and removal
+- Data quality reporting
+- Missing value handling
+- Validation rules enforcement
+
+### Analysis Scripts
+
+**`src/generate_weekly_analysis.py`** - 7-day analysis reports
+- Interactive CLI prompts for date selection
+- Generates 6 visualizations
+- Execution time: ~50 seconds
+- Output: Self-contained HTML with embedded charts
+
+**`src/generate_monthly_analysis.py`** - Monthly analysis reports
+- Full month coverage (28-31 days)
+- Generates 8+ visualizations including choropleth map
+- Execution time: 2-10 minutes
+- Output: HTML with geographic maps
 
 ---
 
@@ -109,36 +175,39 @@ nyc-parking-enforcement-analysis/
 Stores all project data organized by processing stage.
 
 **Subdirectories:**
-- **`raw/`** - Original, unmodified data from external sources
-  - Never modify files in this directory
-  - Archive original data for reproducibility
-  - Size: ~100-150 KB per 1,000 records
+- **`raw/`** - Temporary raw data from API (not tracked in git)
+  - Never modify files here
+  - Auto-cleaned after processing
 
-- **`processed/`** - Clean data ready for analysis
-  - Output from data_cleaner.py
-  - All quality checks and transformations applied
+- **`processed/`** - Clean, analysis-ready data
+  - Output from data cleaning pipeline
+  - All quality checks applied
   - Deduplicated and validated
-  - Use this for all analysis work
+  - Safe to use for analysis
+
+- **`geospatial/`** - Geographic boundary files
+  - `nyc_precincts.geojson` - NYPD precinct polygons
+  - Auto-downloaded from NYC ArcGIS on first use
+  - Cached for performance
 
 ### `/src` - Source Code
 Python modules and scripts for the project.
 
-**Key Files:**
+**Module Overview:**
 
-| File | Purpose | Type | Run Command |
-|------|---------|------|-------------|
-| config.py | Centralized configuration | Module | `python -c "from src.config import *"` |
-| data_loader.py | API data retrieval | Module + Script | `python src/data_loader.py` |
-| data_cleaner.py | Data processing | Module + Script | `python src/data_cleaner.py` |
-| generate_weekly_analysis.py | 7-day analysis with 6 charts | Script | `python src/generate_weekly_analysis.py` |
-| generate_monthly_analysis.py | Monthly analysis with 8 charts + map | Script | `python src/generate_monthly_analysis.py` |
-| preliminary_analysis.py | Exploratory data analysis | Script | `python src/preliminary_analysis.py` |
-| diagnostic.py | System checks | Script | `python src/diagnostic.py` |
+| File | Purpose | Type | Lines | Key Features |
+|------|---------|------|-------|--------------|
+| config.py | Configuration | Module | 100 | Paths, API settings, constants |
+| data_loader.py | API integration | Module/Script | 550 | Pagination, rate limiting, retry logic |
+| data_cleaner.py | Data processing | Module/Script | 900 | Type conversion, validation, quality checks |
+| generate_weekly_analysis.py | 7-day reports | Script | 800 | 6 visualizations, HTML output |
+| generate_monthly_analysis.py | Monthly reports | Script | 900 | 8 visualizations, choropleth maps |
+| diagnostic.py | System checks | Script | 200 | Dependency verification |
 
-**Usage Pattern:**
-1. Modules can be imported: `from src.config import ESSENTIAL_FIELDS`
-2. Scripts can be executed standalone: `python src/data_loader.py`
-3. All scripts respect configuration in config.py
+**Usage Patterns:**
+1. **Import as module**: `from src.config import ESSENTIAL_FIELDS`
+2. **Execute as script**: `python src/data_loader.py`
+3. **Dashboard imports**: All modules imported and reloaded by dashboard.py
 4. **Analysis tools generate HTML reports with embedded visualizations**
 
 ### `/outputs` - Results and Artifacts
