@@ -241,18 +241,65 @@ class ParkingDataCleaner:
         # PERFORMANCE: Don't copy - modify in place
         df = self.raw_df
         
-        # 1. State codes
-        print("Standardizing state codes...")
+        # 1. State codes - Comprehensive validation for all US license plate jurisdictions
+        print("Standardizing and validating state codes...")
         df['state'] = df['state'].str.upper().str.strip()
         
-        # PITFALL: Many invalid state codes (99, 'NY', non-US states)
-        valid_states = ['NY', 'NJ', 'PA', 'CT', 'MA', 'FL', 'CA', 'TX', 'VA', 'MD']
-        invalid_states = df[~df['state'].isin(valid_states)]['state'].value_counts()
+        # All 50 US states + DC + territories that issue license plates
+        VALID_US_JURISDICTIONS = [
+            # 50 US States
+            'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+            'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+            'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+            'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+            'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+            # District of Columbia
+            'DC',
+            # US Territories
+            'AS',  # American Samoa
+            'GU',  # Guam
+            'MP',  # Northern Mariana Islands
+            'PR',  # Puerto Rico
+            'VI',  # U.S. Virgin Islands
+            # Federal/Special
+            'US',  # U.S. Government
+        ]
+        
+        # Common typos and variations to fix
+        STATE_CORRECTIONS = {
+            'N.Y': 'NY', 'N.Y.': 'NY', 'N Y': 'NY',
+            'N.J': 'NJ', 'N.J.': 'NJ', 'N J': 'NJ',
+            'PENN': 'PA', 'P.A': 'PA', 'P.A.': 'PA',
+            'CONN': 'CT', 'C.T': 'CT', 'C.T.': 'CT',
+            'MASS': 'MA', 'M.A': 'MA', 'M.A.': 'MA',
+            'FLA': 'FL', 'FLOR': 'FL',
+            'CAL': 'CA', 'CALIF': 'CA',
+            'TEX': 'TX',
+            'VA.': 'VA', 'VIRG': 'VA',
+            'MD.': 'MD',
+            'D.C': 'DC', 'D.C.': 'DC', 'DIST': 'DC',
+            'USA': 'US', 'U.S': 'US', 'U.S.': 'US',
+            # Remove common prefixes
+            'US-': '', 'USA-': '',
+        }
+        
+        # Apply corrections
+        df['state'] = df['state'].replace(STATE_CORRECTIONS)
+        
+        # Strip any remaining US/USA prefixes
+        df['state'] = df['state'].str.replace(r'^(US|USA)-?', '', regex=True)
+        
+        # Validate against official jurisdictions
+        invalid_states = df[~df['state'].isin(VALID_US_JURISDICTIONS)]['state'].value_counts()
         
         if len(invalid_states) > 0:
             print(f"   Found {len(invalid_states)} non-standard state codes:")
             for state, count in invalid_states.head(10).items():
-                print(f"      '{state}': {count:,}")
+                print(f"      '{state}': {count}")
+            
+            # Mark invalid states as 'UNKNOWN'
+            df.loc[~df['state'].isin(VALID_US_JURISDICTIONS), 'state'] = 'UNKNOWN'
+            print(f"   Marked {invalid_states.sum():,} records with invalid state codes as 'UNKNOWN'")
         
         # Create flag for NY vs non-NY
         df['is_ny_plate'] = df['state'] == 'NY'
