@@ -335,7 +335,7 @@ st.set_page_config(
     page_title="NYC Parking Citations Dashboard",
     page_icon="🚗",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # Custom CSS for typography and visual polish
