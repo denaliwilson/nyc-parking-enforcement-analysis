@@ -98,6 +98,7 @@ ALL_MANHATTAN_PRECINCTS.remove(21)  # Precinct 21 doesn't exist
 def load_manhattan_data(start_date, end_date, period_name="Period"):
     """
     Load Manhattan-only parking citation data for specified date range.
+    Loads data day-by-day to avoid API timeouts.
     
     Args:
         start_date: Start date (datetime.date or str 'YYYY-MM-DD')
@@ -114,35 +115,63 @@ def load_manhattan_data(start_date, end_date, period_name="Period"):
     # Initialize loader
     loader = NYCParkingDataLoader()
     
-    # Convert dates to strings if needed
-    if isinstance(start_date, date):
-        start_date = start_date.strftime('%Y-%m-%d')
-    if isinstance(end_date, date):
-        end_date = end_date.strftime('%Y-%m-%d')
+    # Convert dates to date objects if needed
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    if isinstance(end_date, str):
+        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
     
-    # Build efficient query - MANHATTAN ONLY
-    where_clause = f"issue_date between '{start_date}' and '{end_date}'"
-    where_clause += " AND county = 'NEW YORK'"  # Manhattan only
-    
-    print(f"\nQuery: {where_clause}")
-    print("Fetching data from NYC Open Data API...")
+    print(f"\nDate range: {start_date} to {end_date}")
+    print(f"County filter: Manhattan (multiple variations)")
+    print("Loading data day-by-day to avoid API timeouts...")
     
     start_time = time.time()
+    all_data = []
     
-    # Load data
-    df = loader.load_data(
-        where_clause=where_clause,
-        limit=None,  # Get all records
-        progress_callback=lambda msg: print(f"   {msg}")
-    )
+    # Load data day by day
+    current_date = start_date
+    day_count = 0
+    total_days = (end_date - start_date).days + 1
+    
+    while current_date <= end_date:
+        day_count += 1
+        date_str = current_date.strftime('%Y-%m-%d')
+        
+        try:
+            print(f"\n  [{day_count}/{total_days}] Loading {date_str}...", end=" ")
+            day_df = loader.load_by_day(date_str, limit=75000)
+            
+            if day_df is not None and len(day_df) > 0:
+                # Filter for Manhattan immediately
+                manhattan_counties = ['NEW YORK', 'NY', 'MANHATTAN', 'NEW YORK COUNTY', 'MAN', 'MN']
+                if 'county' in day_df.columns:
+                    day_df['county'] = day_df['county'].str.upper().str.strip()
+                    day_df = day_df[day_df['county'].isin(manhattan_counties)]
+                
+                if len(day_df) > 0:
+                    all_data.append(day_df)
+                    print(f"✓ {len(day_df):,} Manhattan records")
+                else:
+                    print("(0 Manhattan records)")
+            else:
+                print("(no data)")
+        except Exception as e:
+            print(f"⚠ Error: {e}")
+        
+        current_date += timedelta(days=1)
+        time.sleep(0.5)  # Small delay to be nice to the API
     
     load_time = time.time() - start_time
     
-    if df is None or len(df) == 0:
-        print(f"❌ No data found for {period_name}")
+    if len(all_data) == 0:
+        print(f"\n❌ No data found for {period_name}")
         return None
     
-    print(f"\n✓ Loaded {len(df):,} raw records in {load_time:.1f}s")
+    # Combine all days
+    print(f"\nCombining data from {len(all_data)} days...")
+    df = pd.concat(all_data, ignore_index=True)
+    
+    print(f"✓ Loaded {len(df):,} Manhattan records in {load_time:.1f}s")
     
     # Clean data using standard pipeline
     print("\nCleaning data...")
@@ -347,6 +376,65 @@ def analyze_time_patterns(before_df, after_df):
     }
 
 
+def analyze_out_of_state_behavior(before_df, after_df):
+    """Analyze out-of-state plate behavior in-zone vs out-of-zone."""
+    
+    # Define out-of-state (not NY)
+    before_df['is_out_of_state'] = before_df['state'] != 'NY'
+    after_df['is_out_of_state'] = after_df['state'] != 'NY'
+    
+    results = []
+    
+    # Analyze by zone type
+    for zone in ['In Zone', 'Border Zone', 'Out of Zone']:
+        # Before period
+        before_zone = before_df[before_df['zone_type'] == zone]
+        before_total = len(before_zone)
+        before_out_of_state = len(before_zone[before_zone['is_out_of_state']])
+        before_pct = (before_out_of_state / before_total * 100) if before_total > 0 else 0
+        
+        # After period
+        after_zone = after_df[after_df['zone_type'] == zone]
+        after_total = len(after_zone)
+        after_out_of_state = len(after_zone[after_zone['is_out_of_state']])
+        after_pct = (after_out_of_state / after_total * 100) if after_total > 0 else 0
+        
+        # Calculate change
+        change_count = after_out_of_state - before_out_of_state
+        change_pct = after_pct - before_pct
+        pct_change = ((after_out_of_state - before_out_of_state) / before_out_of_state * 100) if before_out_of_state > 0 else 0
+        
+        results.append({
+            'Zone': zone,
+            'Before Total': before_total,
+            'Before Out-of-State': before_out_of_state,
+            'Before Out-of-State %': before_pct,
+            'After Total': after_total,
+            'After Out-of-State': after_out_of_state,
+            'After Out-of-State %': after_pct,
+            'Change in Count': change_count,
+            'Change in %': change_pct,
+            'Percent Change': pct_change
+        })
+    
+    # Top out-of-state contributors by zone
+    state_details = {}
+    for zone in ['In Zone', 'Border Zone', 'Out of Zone']:
+        before_zone = before_df[(before_df['zone_type'] == zone) & (before_df['is_out_of_state'])]
+        after_zone = after_df[(after_df['zone_type'] == zone) & (after_df['is_out_of_state'])]
+        
+        # Top 5 states
+        before_states = before_zone['state'].value_counts().head(5).to_dict() if len(before_zone) > 0 else {}
+        after_states = after_zone['state'].value_counts().head(5).to_dict() if len(after_zone) > 0 else {}
+        
+        state_details[zone] = {
+            'before_top_states': before_states,
+            'after_top_states': after_states
+        }
+    
+    return pd.DataFrame(results), state_details
+
+
 # ============================================================================
 # VISUALIZATION FUNCTIONS
 # ============================================================================
@@ -445,6 +533,52 @@ def create_hourly_comparison(time_patterns):
     return figure_to_base64(fig)
 
 
+def create_out_of_state_chart(oos_analysis):
+    """Create visualization for out-of-state plate behavior by zone."""
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+    
+    zones = oos_analysis['Zone']
+    x = np.arange(len(zones))
+    width = 0.35
+    
+    # Chart 1: Out-of-state citation counts
+    ax1.bar(x - width/2, oos_analysis['Before Out-of-State'], width, 
+            label='Before', color='#3498db', alpha=0.8)
+    ax1.bar(x + width/2, oos_analysis['After Out-of-State'], width, 
+            label='After', color='#e74c3c', alpha=0.8)
+    ax1.set_xlabel('Zone Type', fontweight='bold', fontsize=11)
+    ax1.set_ylabel('Out-of-State Citations', fontweight='bold', fontsize=11)
+    ax1.set_title('Out-of-State Plate Citations by Zone', fontweight='bold', fontsize=13)
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(zones)
+    ax1.legend()
+    ax1.grid(True, alpha=0.3, axis='y')
+    
+    # Chart 2: Percentage of citations from out-of-state
+    ax2.bar(x - width/2, oos_analysis['Before Out-of-State %'], width, 
+            label='Before', color='#3498db', alpha=0.8)
+    ax2.bar(x + width/2, oos_analysis['After Out-of-State %'], width, 
+            label='After', color='#e74c3c', alpha=0.8)
+    ax2.set_xlabel('Zone Type', fontweight='bold', fontsize=11)
+    ax2.set_ylabel('Out-of-State %', fontweight='bold', fontsize=11)
+    ax2.set_title('Out-of-State Plate Share by Zone', fontweight='bold', fontsize=13)
+    ax2.set_xticks(x)
+    ax2.set_xticklabels(zones)
+    ax2.legend()
+    ax2.grid(True, alpha=0.3, axis='y')
+    
+    # Add value labels on bars
+    for i, (before_pct, after_pct) in enumerate(zip(oos_analysis['Before Out-of-State %'], 
+                                                      oos_analysis['After Out-of-State %'])):
+        ax2.text(i - width/2, before_pct + 0.3, f'{before_pct:.1f}%', 
+                ha='center', va='bottom', fontsize=9, fontweight='bold')
+        ax2.text(i + width/2, after_pct + 0.3, f'{after_pct:.1f}%', 
+                ha='center', va='bottom', fontsize=9, fontweight='bold')
+    
+    plt.tight_layout()
+    return figure_to_base64(fig)
+
+
 # ============================================================================
 # HTML REPORT GENERATION
 # ============================================================================
@@ -472,11 +606,15 @@ def generate_html_report(before_df, after_df, output_path):
     print("Analyzing time patterns...")
     time_patterns = analyze_time_patterns(before_df, after_df)
     
+    print("Analyzing out-of-state plate behavior...")
+    oos_analysis, oos_state_details = analyze_out_of_state_behavior(before_df, after_df)
+    
     # Generate visualizations
     print("\nGenerating visualizations...")
     zone_chart = create_zone_comparison_chart(zone_analysis)
     precinct_heatmap = create_precinct_heatmap(precinct_comparison)
     hourly_chart = create_hourly_comparison(time_patterns)
+    oos_chart = create_out_of_state_chart(oos_analysis)
     
     # Build HTML
     print("Building HTML report...")
@@ -747,6 +885,79 @@ def generate_html_report(before_df, after_df, output_path):
         <h2>⏰ Time Pattern Analysis</h2>
         <div class="chart-container">
             <img src="data:image/png;base64,""" + hourly_chart + """" alt="Hourly Patterns">
+        </div>
+        
+        <h2>🚘 Out-of-State Plate Behavior Analysis</h2>
+        <div class="section">
+            <h3>Key Insight: Congestion Zone Impact on Out-of-State Drivers</h3>
+            <p>This analysis examines how congestion pricing affected out-of-state driver behavior differently 
+            in the congestion zone versus outside the zone. Changes in out-of-state plate citation patterns 
+            can indicate whether the toll influenced out-of-state drivers to avoid the zone or park differently.</p>
+        </div>
+        
+        <div class="chart-container">
+            <img src="data:image/png;base64,""" + oos_chart + """" alt="Out-of-State Analysis">
+        </div>
+        
+        <div class="section">
+            <h3>Out-of-State Citation Statistics by Zone</h3>
+    """
+    
+    # Out-of-state analysis table
+    oos_display = oos_analysis[['Zone', 'Before Out-of-State', 'Before Out-of-State %', 
+                                 'After Out-of-State', 'After Out-of-State %', 
+                                 'Change in Count', 'Change in %', 'Percent Change']].copy()
+    
+    html_content += oos_display.to_html(index=False, classes='table', escape=False,
+                                         formatters={
+                                             'Before Out-of-State': lambda x: f'{x:,.0f}',
+                                             'After Out-of-State': lambda x: f'{x:,.0f}',
+                                             'Before Out-of-State %': lambda x: f'{x:.1f}%',
+                                             'After Out-of-State %': lambda x: f'{x:.1f}%',
+                                             'Change in Count': lambda x: f'<span class="{"increase" if x > 0 else "decrease"}">{x:+,.0f}</span>',
+                                             'Change in %': lambda x: f'<span class="{"increase" if x > 0 else "decrease"}">{x:+.2f}pp</span>',
+                                             'Percent Change': lambda x: f'<span class="{"increase" if x > 0 else "decrease"}">{x:+.1f}%</span>'
+                                         })
+    
+    # Add top out-of-state contributors
+    html_content += """
+            <h3>Top Out-of-State Contributors by Zone</h3>
+    """
+    
+    for zone in ['In Zone', 'Border Zone', 'Out of Zone']:
+        details = oos_state_details[zone]
+        before_states = details['before_top_states']
+        after_states = details['after_top_states']
+        
+        html_content += f"""
+            <h4>{zone}</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <div>
+                    <strong>Before (Top 5 States):</strong>
+                    <ul>
+        """
+        
+        for state, count in list(before_states.items())[:5]:
+            html_content += f"<li>{state}: {count:,} citations</li>\n"
+        
+        html_content += """
+                    </ul>
+                </div>
+                <div>
+                    <strong>After (Top 5 States):</strong>
+                    <ul>
+        """
+        
+        for state, count in list(after_states.items())[:5]:
+            html_content += f"<li>{state}: {count:,} citations</li>\n"
+        
+        html_content += """
+                    </ul>
+                </div>
+            </div>
+        """
+    
+    html_content += """
         </div>
         
         <div class="metadata">
