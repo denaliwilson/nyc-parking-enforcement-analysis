@@ -1,17 +1,19 @@
 # NYC Congestion Pricing Analysis
 
-## Running the Congestion Analysis Dashboard
+## Analysis Tools
+
+### 1. Interactive Dashboard (Streamlit)
 
 The congestion pricing analysis is a **standalone dashboard** separate from the main citations dashboard.
 
-### Direct Access (Recommended)
+#### Direct Access (Recommended)
 ```bash
 streamlit run congestion_analysis.py
 ```
 
 This runs independently on its own port (typically http://localhost:8502 if main dashboard is already running).
 
-### Running Both Dashboards Simultaneously
+#### Running Both Dashboards Simultaneously
 You can run both dashboards at the same time in separate terminal windows:
 
 **Terminal 1 - Main Dashboard:**
@@ -28,7 +30,30 @@ Then access:
 - Main Dashboard: http://localhost:8501
 - Congestion Analysis: http://localhost:8502
 
-## Features
+### 2. Comprehensive HTML Report (Command Line)
+
+**NEW**: Generate detailed Manhattan-focused congestion pricing impact reports with enhanced analysis.
+
+```bash
+python src/manhattan_congestion_report.py
+```
+
+**Features:**
+- **One-month before/after comparison** (Dec 5, 2024 - Jan 4, 2025 vs Jan 5 - Feb 4, 2025)
+- **Manhattan-focused analysis** with expanded county detection (NY, NEW YORK, MANHATTAN, etc.)
+- **Zone-specific breakdown**: In Zone (below 60th St), Border Zone, Out of Zone
+- **Out-of-state plate behavior analysis**: Compare how non-NY drivers behaved in-zone vs out-of-zone
+- **Precinct-level heatmaps** with top 20 precincts
+- **Violation type analysis** with before/after comparisons
+- **Time pattern analysis** with hourly trends
+- **Interactive HTML output** with embedded visualizations
+- **Day-by-day data loading** for reliability
+
+**Output Location:** `outputs/reports/manhattan_congestion_report_YYYYMMDD_HHMMSS.html`
+
+**Analysis Duration:** ~15-20 minutes (loads 62 days of Manhattan data)
+
+## Dashboard Features
 
 ### 📊 Quick Comparison (Available Now)
 - **January 2024 vs January 2026** side-by-side analysis
@@ -51,12 +76,35 @@ Then access:
 
 ## Analysis Questions Answered
 
+### Dashboard Analysis
 1. ✅ Did citation volumes change after implementation?
 2. ✅ Did violations shift from congestion zone to outside areas?
 3. ✅ What violation types changed most?
 4. ✅ How did enforcement patterns change by agency?
 5. ✅ What's the revenue impact?
 6. ✅ Did time-of-day patterns shift?
+
+### Enhanced Report Analysis (manhattan_congestion_report.py)
+1. ✅ How did out-of-state driver behavior change in-zone vs out-of-zone?
+2. ✅ Which states contribute most to citations in each zone?
+3. ✅ What are the zone-specific citation patterns (In/Border/Out)?
+4. ✅ How did individual precincts respond to congestion pricing?
+5. ✅ What are the top violation types in each zone?
+6. ✅ How did hourly enforcement patterns change?
+7. ✅ What is the geographic distribution of impacts across Manhattan?
+
+## Data Coverage
+
+### Manhattan County Detection
+The analysis now uses **comprehensive county filtering** to capture all Manhattan citations:
+- `NEW YORK` (standard county name)
+- `NY` (abbreviation)
+- `MANHATTAN` (common name)
+- `NEW YORK COUNTY` (official name)
+- `MAN` (short form)
+- `MN` (abbreviation)
+
+This ensures no Manhattan citations are missed due to data entry variations.
 
 ## Data Sources
 

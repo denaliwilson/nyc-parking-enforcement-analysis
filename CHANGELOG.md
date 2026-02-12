@@ -5,6 +5,38 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-02-11
+
+### Added - Manhattan Congestion Analysis
+- **manhattan_congestion_report.py**: Comprehensive Manhattan congestion pricing impact report
+  - Before/After analysis (Dec 5, 2024 - Jan 4, 2025 vs Jan 5 - Feb 4, 2025)
+  - Zone-specific analysis: In Zone, Border Zone, Out of Zone
+  - **Out-of-state plate behavior analysis** comparing non-NY drivers in-zone vs out-of-zone
+  - Top 5 out-of-state contributors by zone with before/after comparison
+  - Precinct-level heatmaps showing top 20 precincts
+  - Violation type analysis with change percentages
+  - Hourly citation pattern comparisons
+  - Self-contained HTML reports with embedded visualizations
+  - Day-by-day data loading for API reliability
+
+### Changed - Data Loading
+- Enhanced Manhattan county filtering with multiple variations:
+  - `NEW YORK`, `NY`, `MANHATTAN`, `NEW YORK COUNTY`, `MAN`, `MN`
+  - Ensures comprehensive capture of all Manhattan citations
+- Implemented day-by-day loading strategy to prevent API timeouts
+- Added progress tracking for multi-day data loads
+
+### Changed - Analysis Capabilities
+- Extended congestion analysis to include registration state analysis
+- Added detailed zone classification (11 in-zone, 2 border, 9 out-of-zone precincts)
+- Enhanced visualization with dual-chart comparisons for out-of-state analysis
+
+### Enhanced - Documentation
+- Updated CONGESTION_ANALYSIS.md with new report generator details
+- Updated PROJECT_STRUCTURE.md to include manhattan_congestion_report.py
+- Added comprehensive data coverage documentation
+- Documented analysis questions answered by new report
+
 ## [1.0.0] - 2026-02-07
 
 ### Added - Dashboard & Visualization

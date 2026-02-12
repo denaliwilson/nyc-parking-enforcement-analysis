@@ -38,6 +38,12 @@ This project provides an interactive Streamlit dashboard to analyze millions of 
 - Top streets by citations
 
 ### 🔧 Analysis Tools (Command Line)
+- **Manhattan Congestion Report** (`manhattan_congestion_report.py`): Comprehensive congestion pricing impact analysis
+  - Before/after comparison (1 month each side of Jan 5, 2025 implementation)
+  - Zone analysis (In Zone, Border, Out of Zone)
+  - Out-of-state plate behavior analysis
+  - Precinct heatmaps and violation analysis
+  - Duration: ~15-20 minutes
 - **Weekly Analysis** (`generate_weekly_analysis.py`): Analyze 7-day periods (~50 seconds)
 - **Monthly Analysis** (`generate_monthly_analysis.py`): Full month reports with 8+ visualizations
 - **HTML Reports**: Self-contained reports with embedded charts and statistics
@@ -134,6 +140,16 @@ The dashboard will open in your browser at `http://localhost:8501`
 
 #### Option 2: Generate Analysis Reports
 
+**Manhattan Congestion Pricing Impact Report** (comprehensive, ~15-20 minutes):
+```bash
+python src/manhattan_congestion_report.py
+```
+- One-month before/after congestion pricing comparison
+- Zone analysis (In Zone, Border, Out of Zone)
+- Out-of-state plate behavior analysis
+- Precinct heatmaps and hourly patterns
+- Full HTML report with embedded visualizations
+
 **Weekly Analysis** (7-day period, ~50 seconds):
 ```bash
 python src/generate_weekly_analysis.py
@@ -174,6 +190,7 @@ nyc-parking-enforcement-analysis/
 │   ├── config.py              # Configuration and constants
 │   ├── data_loader.py         # NYC Open Data API integration
 │   ├── data_cleaner.py        # Data cleaning and validation
+│   ├── manhattan_congestion_report.py # CLI: Congestion impact analysis
 │   ├── generate_weekly_analysis.py    # CLI: 7-day reports
 │   ├── generate_monthly_analysis.py   # CLI: monthly reports
 │   └── diagnostic.py          # System diagnostics

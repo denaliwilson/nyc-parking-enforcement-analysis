@@ -56,6 +56,13 @@ nyc-parking-enforcement-analysis/
 │   │   └── Methods: clean_dataframe(), check_data_quality(), clean_dates()
 │   │   └── Features: Type conversion, duplicate removal, validation
 │   │
+│   ├── manhattan_congestion_report.py # CLI: Manhattan congestion impact analysis
+│   │   └── Comprehensive before/after congestion pricing analysis
+│   │   └── Features: Zone analysis, out-of-state behavior, precinct heatmaps
+│   │   └── Output: Full HTML report with 8+ visualizations
+│   │   └── Run: python src/manhattan_congestion_report.py
+│   │   └── Duration: ~15-20 minutes (loads 62 days of Manhattan data)
+│   │
 │   ├── generate_weekly_analysis.py # CLI: Weekly analysis with 6 visualizations
 │   │   └── Interactive 7-day analysis tool
 │   │   └── Output: HTML reports with embedded charts
@@ -95,8 +102,11 @@ nyc-parking-enforcement-analysis/
 │   ├── README.md                   # Project overview, features, quick start
 │   ├── SETUP.md                    # Installation, deployment, configuration
 │   ├── PROJECT_STRUCTURE.md        # This file - directory layout
+│   ├── CONGESTION_ANALYSIS.md      # Congestion pricing analysis guide
+│   ├── MANHATTAN_CONGESTION_REPORT.md # Manhattan report detailed documentation
 │   ├── DATA_DICTIONARY.md          # Field definitions and data types
 │   ├── DATA_SOURCES.md             # API documentation and endpoints
+│   ├── CHANGELOG.md                # Version history and changes
 │   └── LICENSE                     # Project license
 │
 └── Configuration Files
