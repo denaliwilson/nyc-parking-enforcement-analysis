@@ -175,12 +175,16 @@ def load_manhattan_data(start_date, end_date, period_name="Period"):
     
     # Clean data using standard pipeline
     print("\nCleaning data...")
-    cleaner = ParkingDataCleaner(df)
-    df_cleaned = cleaner.clean()
+    cleaner = ParkingDataCleaner()
+    df_cleaned = cleaner.clean_dataframe(df)
     
     if df_cleaned is None or len(df_cleaned) == 0:
         print(f"❌ No valid data after cleaning for {period_name}")
         return None
+
+    # Normalize precinct column name for downstream analysis compatibility
+    if 'violation_precinct' not in df_cleaned.columns and 'precinct' in df_cleaned.columns:
+        df_cleaned['violation_precinct'] = pd.to_numeric(df_cleaned['precinct'], errors='coerce')
     
     print(f"✓ {len(df_cleaned):,} records after cleaning ({len(df) - len(df_cleaned):,} removed)")
     
