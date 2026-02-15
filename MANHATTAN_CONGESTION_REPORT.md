@@ -25,11 +25,8 @@ python src/manhattan_congestion_report.py
 ### In Zone (Below 60th Street) - 11 Precincts
 Precincts: 1, 5, 6, 7, 9, 10, 13, 14, 17, 18, 22
 
-### Border Zone (On/Near 60th Street) - 2 Precincts
-Precincts: 19, 20
-
-### Out of Zone (Above 60th Street) - 9 Precincts
-Precincts: 23, 24, 25, 26, 28, 30, 32, 33, 34
+### Out of Zone (Above 60th Street) - 11 Precincts
+Precincts: 19, 20, 23, 24, 25, 26, 28, 30, 32, 33, 34
 
 ## Report Sections
 
@@ -42,7 +39,6 @@ Precincts: 23, 24, 25, 26, 28, 30, 32, 33, 34
 - Total citations (before vs after)
 - Daily average citations
 - In Zone citation changes
-- Border Zone citation changes
 - Out of Zone citation changes
 
 ### 3. Zone Analysis

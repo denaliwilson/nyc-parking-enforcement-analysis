@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added - Manhattan Congestion Analysis
 - **manhattan_congestion_report.py**: Comprehensive Manhattan congestion pricing impact report
   - Before/After analysis (Dec 5, 2024 - Jan 4, 2025 vs Jan 5 - Feb 4, 2025)
-  - Zone-specific analysis: In Zone, Border Zone, Out of Zone
+  - Zone-specific analysis: In Zone, Out of Zone
   - **Out-of-state plate behavior analysis** comparing non-NY drivers in-zone vs out-of-zone
   - Top 5 out-of-state contributors by zone with before/after comparison
   - Precinct-level heatmaps showing top 20 precincts
@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed - Analysis Capabilities
 - Extended congestion analysis to include registration state analysis
-- Added detailed zone classification (11 in-zone, 2 border, 9 out-of-zone precincts)
+- Added detailed zone classification (11 in-zone, 11 out-of-zone precincts, including precincts 19 and 20)
 - Enhanced visualization with dual-chart comparisons for out-of-state analysis
 
 ### Enhanced - Documentation

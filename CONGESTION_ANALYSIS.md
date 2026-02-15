@@ -41,7 +41,7 @@ python src/manhattan_congestion_report.py
 **Features:**
 - **One-month before/after comparison** (Dec 5, 2024 - Jan 4, 2025 vs Jan 5 - Feb 4, 2025)
 - **Manhattan-focused analysis** with expanded county detection (NY, NEW YORK, MANHATTAN, etc.)
-- **Zone-specific breakdown**: In Zone (below 60th St), Border Zone, Out of Zone
+- **Zone-specific breakdown**: In Zone (below 60th St), Out of Zone (includes precincts 19 and 20)
 - **Out-of-state plate behavior analysis**: Compare how non-NY drivers behaved in-zone vs out-of-zone
 - **Precinct-level heatmaps** with top 20 precincts
 - **Violation type analysis** with before/after comparisons
@@ -87,7 +87,7 @@ python src/manhattan_congestion_report.py
 ### Enhanced Report Analysis (manhattan_congestion_report.py)
 1. ✅ How did out-of-state driver behavior change in-zone vs out-of-zone?
 2. ✅ Which states contribute most to citations in each zone?
-3. ✅ What are the zone-specific citation patterns (In/Border/Out)?
+3. ✅ What are the zone-specific citation patterns (In/Out)?
 4. ✅ How did individual precincts respond to congestion pricing?
 5. ✅ What are the top violation types in each zone?
 6. ✅ How did hourly enforcement patterns change?

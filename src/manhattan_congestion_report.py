@@ -3,7 +3,7 @@ Manhattan Congestion Pricing Analysis - Comprehensive Report Generator
 
 Generates a detailed before/after comparison report for the Manhattan congestion pricing
 implementation on January 5, 2025. Focuses exclusively on Manhattan data for efficiency
-and includes zone-specific analysis (in-zone, border, out-of-zone).
+and includes zone-specific analysis (in-zone, out-of-zone).
 
 Usage:
     python src/manhattan_congestion_report.py
@@ -62,29 +62,17 @@ CONGESTION_ZONE_PRECINCTS = [
     34,  # Washington Heights
 ]
 
-# Border precincts (adjacent to congestion zone or on boundary)
-# These precincts may see spillover effects
-BORDER_PRECINCTS = [
-    # Note: Some precincts in the main list above may actually be border
-    # Refining based on actual 60th Street boundary:
-    19,  # Upper East Side - crosses 60th St boundary
-    20,  # Upper West Side - crosses 60th St boundary
-]
-
 # Out of zone precincts (above 60th Street in Manhattan)
 OUT_OF_ZONE_PRECINCTS = [
-    23, 24, 25, 26, 28, 30, 32, 33, 34  # Northern Manhattan
+    19, 20, 23, 24, 25, 26, 28, 30, 32, 33, 34
 ]
 
 # Refined classifications based on 60th Street boundary
 # IN ZONE: Below 60th Street (approximately precincts 1-18, 22)
 IN_ZONE_PRECINCTS = [1, 5, 6, 7, 9, 10, 13, 14, 17, 18, 22]
 
-# BORDER ZONE: On or near 60th Street boundary
-BORDER_ZONE_PRECINCTS = [19, 20]  # These straddle the boundary
-
 # OUT OF ZONE: Above 60th Street
-OUT_OF_ZONE_PRECINCTS = [23, 24, 25, 26, 28, 30, 32, 33, 34]
+OUT_OF_ZONE_PRECINCTS = [19, 20, 23, 24, 25, 26, 28, 30, 32, 33, 34]
 
 # All Manhattan precincts (1-34, excluding 21 which doesn't exist)
 ALL_MANHATTAN_PRECINCTS = list(range(1, 35))
@@ -202,7 +190,7 @@ def classify_precinct_zones(df):
     Classify each citation by precinct zone type.
     
     Adds columns:
-        - zone_type: 'In Zone', 'Border Zone', 'Out of Zone', 'Unknown'
+        - zone_type: 'In Zone', 'Out of Zone', 'Unknown'
         - in_congestion_zone: Boolean for primary zone
     """
     print("\nClassifying precinct zones...")
@@ -214,8 +202,6 @@ def classify_precinct_zones(df):
         
         if precinct in IN_ZONE_PRECINCTS:
             return 'In Zone'
-        elif precinct in BORDER_ZONE_PRECINCTS:
-            return 'Border Zone'
         elif precinct in OUT_OF_ZONE_PRECINCTS:
             return 'Out of Zone'
         else:
@@ -254,10 +240,6 @@ def compare_overall_metrics(before_df, after_df):
             'Before': len(before_df[before_df['in_congestion_zone']]),
             'After': len(after_df[after_df['in_congestion_zone']]),
         },
-        'Border Zone Citations': {
-            'Before': len(before_df[before_df['zone_type'] == 'Border Zone']),
-            'After': len(after_df[after_df['zone_type'] == 'Border Zone']),
-        },
         'Out of Zone Citations': {
             'Before': len(before_df[before_df['zone_type'] == 'Out of Zone']),
             'After': len(after_df[after_df['zone_type'] == 'Out of Zone']),
@@ -286,7 +268,7 @@ def compare_overall_metrics(before_df, after_df):
 def analyze_by_zone(before_df, after_df):
     """Detailed analysis by zone type."""
     
-    zones = ['In Zone', 'Border Zone', 'Out of Zone']
+    zones = ['In Zone', 'Out of Zone']
     results = []
     
     for zone in zones:
@@ -333,7 +315,6 @@ def analyze_by_precinct(before_df, after_df):
     # Add zone classification
     comparison['Zone_Type'] = comparison['Precinct'].apply(
         lambda p: 'In Zone' if p in IN_ZONE_PRECINCTS 
-        else 'Border Zone' if p in BORDER_ZONE_PRECINCTS
         else 'Out of Zone' if p in OUT_OF_ZONE_PRECINCTS
         else 'Unknown'
     )
@@ -390,7 +371,7 @@ def analyze_out_of_state_behavior(before_df, after_df):
     results = []
     
     # Analyze by zone type
-    for zone in ['In Zone', 'Border Zone', 'Out of Zone']:
+    for zone in ['In Zone', 'Out of Zone']:
         # Before period
         before_zone = before_df[before_df['zone_type'] == zone]
         before_total = len(before_zone)
@@ -423,7 +404,7 @@ def analyze_out_of_state_behavior(before_df, after_df):
     
     # Top out-of-state contributors by zone
     state_details = {}
-    for zone in ['In Zone', 'Border Zone', 'Out of Zone']:
+    for zone in ['In Zone', 'Out of Zone']:
         before_zone = before_df[(before_df['zone_type'] == zone) & (before_df['is_out_of_state'])]
         after_zone = after_df[(after_df['zone_type'] == zone) & (after_df['is_out_of_state'])]
         
@@ -765,10 +746,6 @@ def generate_html_report(before_df, after_df, output_path):
                 background-color: #e74c3c;
                 color: white;
             }}
-            .zone-border {{
-                background-color: #f39c12;
-                color: white;
-            }}
             .zone-out {{
                 background-color: #27ae60;
                 color: white;
@@ -796,7 +773,6 @@ def generate_html_report(before_df, after_df, output_path):
             <p><strong>Zone Classification:</strong></p>
             <ul>
                 <li><span class="zone-badge zone-in">In Zone</span> Below 60th Street (Precincts: {', '.join(map(str, IN_ZONE_PRECINCTS))})</li>
-                <li><span class="zone-badge zone-border">Border Zone</span> On/near 60th Street (Precincts: {', '.join(map(str, BORDER_ZONE_PRECINCTS))})</li>
                 <li><span class="zone-badge zone-out">Out of Zone</span> Above 60th Street (Precincts: {', '.join(map(str, OUT_OF_ZONE_PRECINCTS))})</li>
             </ul>
         </div>
@@ -928,7 +904,7 @@ def generate_html_report(before_df, after_df, output_path):
             <h3>Top Out-of-State Contributors by Zone</h3>
     """
     
-    for zone in ['In Zone', 'Border Zone', 'Out of Zone']:
+    for zone in ['In Zone', 'Out of Zone']:
         details = oos_state_details[zone]
         before_states = details['before_top_states']
         after_states = details['after_top_states']
@@ -996,7 +972,6 @@ def main():
     print("and after the congestion pricing implementation on January 5, 2025.")
     print("\nZone Classification:")
     print(f"  • IN ZONE (below 60th St): {len(IN_ZONE_PRECINCTS)} precincts")
-    print(f"  • BORDER ZONE (on/near 60th St): {len(BORDER_ZONE_PRECINCTS)} precincts")
     print(f"  • OUT OF ZONE (above 60th St): {len(OUT_OF_ZONE_PRECINCTS)} precincts")
     
     # Define analysis periods
