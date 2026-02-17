@@ -265,6 +265,61 @@ def compare_overall_metrics(before_df, after_df):
     return pd.DataFrame(results)
 
 
+def calculate_topline_zone_kpis(before_df, after_df):
+    """Calculate topline % change KPIs by zone (test/control)."""
+
+    def get_revenue_column(df):
+        if 'net_fine' in df.columns:
+            return 'net_fine'
+        if 'fine_amount' in df.columns:
+            return 'fine_amount'
+        return None
+
+    def pct_change(before_val, after_val):
+        return ((after_val - before_val) / before_val * 100) if before_val > 0 else 0
+
+    revenue_col_before = get_revenue_column(before_df)
+    revenue_col_after = get_revenue_column(after_df)
+
+    results = []
+    zone_configs = [
+        ('In Zone', 'Test Area'),
+        ('Out of Zone', 'Control Area')
+    ]
+
+    for zone, area_label in zone_configs:
+        before_zone = before_df[before_df['zone_type'] == zone]
+        after_zone = after_df[after_df['zone_type'] == zone]
+
+        before_citations = len(before_zone)
+        after_citations = len(after_zone)
+
+        before_revenue = before_zone[revenue_col_before].sum() if revenue_col_before else 0
+        after_revenue = after_zone[revenue_col_after].sum() if revenue_col_after else 0
+
+        before_hourly = before_zone.groupby('violation_hour').size() if len(before_zone) > 0 else pd.Series(dtype='int64')
+        after_hourly = after_zone.groupby('violation_hour').size() if len(after_zone) > 0 else pd.Series(dtype='int64')
+
+        before_peak = int(before_hourly.max()) if len(before_hourly) > 0 else 0
+        after_peak = int(after_hourly.max()) if len(after_hourly) > 0 else 0
+
+        results.append({
+            'Zone': zone,
+            'Area Label': area_label,
+            'Citations Before': before_citations,
+            'Citations After': after_citations,
+            'Citations % Change': pct_change(before_citations, after_citations),
+            'Revenue Before': before_revenue,
+            'Revenue After': after_revenue,
+            'Revenue % Change': pct_change(before_revenue, after_revenue),
+            'Peak Hourly Before': before_peak,
+            'Peak Hourly After': after_peak,
+            'Peak Hourly % Change': pct_change(before_peak, after_peak)
+        })
+
+    return pd.DataFrame(results)
+
+
 def analyze_by_zone(before_df, after_df):
     """Detailed analysis by zone type."""
     
@@ -576,8 +631,8 @@ def generate_html_report(before_df, after_df, output_path):
     print("="*70)
     
     # Run analyses
-    print("\nAnalyzing overall metrics...")
-    overall_metrics = compare_overall_metrics(before_df, after_df)
+    print("\nAnalyzing topline zone KPIs...")
+    topline_zone_kpis = calculate_topline_zone_kpis(before_df, after_df)
     
     print("Analyzing by zone...")
     zone_analysis = analyze_by_zone(before_df, after_df)
@@ -685,6 +740,67 @@ def generate_html_report(before_df, after_df, output_path):
             .metric-change.negative {{
                 color: #27ae60;
             }}
+            .kpi-zone-grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+                gap: 20px;
+                margin: 25px 0;
+            }}
+            .kpi-zone-card {{
+                background: white;
+                border-radius: 10px;
+                padding: 20px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                border-top: 4px solid #3498db;
+            }}
+            .kpi-zone-card.in-zone {{
+                border-top-color: #e74c3c;
+            }}
+            .kpi-zone-card.out-zone {{
+                border-top-color: #27ae60;
+            }}
+            .kpi-zone-header {{
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                margin-bottom: 14px;
+            }}
+            .kpi-zone-title {{
+                margin: 0;
+                font-size: 1.2em;
+                color: #2c3e50;
+            }}
+            .kpi-zone-subtitle {{
+                font-size: 0.9em;
+                color: #7f8c8d;
+                font-weight: 600;
+            }}
+            .kpi-metric-list {{
+                display: grid;
+                gap: 10px;
+            }}
+            .kpi-metric-item {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                background: #f8f9fa;
+                border-radius: 8px;
+                padding: 12px 14px;
+            }}
+            .kpi-metric-name {{
+                font-weight: 600;
+                color: #34495e;
+            }}
+            .kpi-metric-values {{
+                text-align: right;
+                color: #2c3e50;
+                font-size: 0.95em;
+            }}
+            .kpi-pct {{
+                font-size: 1.05em;
+                font-weight: 700;
+                margin-left: 10px;
+            }}
             table {{
                 width: 100%;
                 border-collapse: collapse;
@@ -778,23 +894,45 @@ def generate_html_report(before_df, after_df, output_path):
         </div>
         
         <h2>📊 Key Findings</h2>
-        <div class="metric-grid">
+        <div class="kpi-zone-grid">
     """
-    
-    # Add key metrics cards
-    for _, row in overall_metrics.iterrows():
-        change_class = 'positive' if row['Change'] > 0 else 'negative'
-        change_symbol = '▲' if row['Change'] > 0 else '▼'
-        
+
+    # Add top-line zone KPI cards (test/control)
+    for _, row in topline_zone_kpis.iterrows():
+        zone_css = 'in-zone' if row['Zone'] == 'In Zone' else 'out-zone'
+
+        citation_pct_class = 'increase' if row['Citations % Change'] > 0 else 'decrease'
+        revenue_pct_class = 'increase' if row['Revenue % Change'] > 0 else 'decrease'
+        peak_pct_class = 'increase' if row['Peak Hourly % Change'] > 0 else 'decrease'
+
         html_content += f"""
-            <div class="metric-card">
-                <h4>{row['Metric']}</h4>
-                <div class="metric-value">{row['After']:,.0f}</div>
-                <div class="metric-change {change_class}">
-                    {change_symbol} {abs(row['Change']):,.0f} ({row['Change %']:+.1f}%)
+            <div class="kpi-zone-card {zone_css}">
+                <div class="kpi-zone-header">
+                    <h3 class="kpi-zone-title">{row['Zone']}</h3>
+                    <span class="kpi-zone-subtitle">{row['Area Label']}</span>
                 </div>
-                <div style="font-size: 0.85em; color: #95a5a6; margin-top: 8px;">
-                    Before: {row['Before']:,.0f}
+                <div class="kpi-metric-list">
+                    <div class="kpi-metric-item">
+                        <div class="kpi-metric-name">Citations % Change</div>
+                        <div class="kpi-metric-values">
+                            {row['Citations Before']:,.0f} → {row['Citations After']:,.0f}
+                            <span class="kpi-pct {citation_pct_class}">{row['Citations % Change']:+.1f}%</span>
+                        </div>
+                    </div>
+                    <div class="kpi-metric-item">
+                        <div class="kpi-metric-name">Revenue % Change</div>
+                        <div class="kpi-metric-values">
+                            ${row['Revenue Before']:,.0f} → ${row['Revenue After']:,.0f}
+                            <span class="kpi-pct {revenue_pct_class}">{row['Revenue % Change']:+.1f}%</span>
+                        </div>
+                    </div>
+                    <div class="kpi-metric-item">
+                        <div class="kpi-metric-name">Peak Hourly Citations % Change</div>
+                        <div class="kpi-metric-values">
+                            {row['Peak Hourly Before']:,.0f} → {row['Peak Hourly After']:,.0f}
+                            <span class="kpi-pct {peak_pct_class}">{row['Peak Hourly % Change']:+.1f}%</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         """
