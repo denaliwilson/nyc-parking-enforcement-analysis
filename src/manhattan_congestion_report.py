@@ -548,7 +548,7 @@ def create_precinct_heatmap(precinct_comparison):
     return figure_to_base64(fig)
 
 
-def create_hourly_comparison(time_patterns):
+def create_hourly_comparison(time_patterns, before_label='Before', after_label='After'):
     """Create hourly pattern comparison."""
     fig, ax = plt.subplots(figsize=(14, 6))
     
@@ -556,10 +556,10 @@ def create_hourly_comparison(time_patterns):
     before_vals = [time_patterns['hourly_before'].get(h, 0) for h in hours]
     after_vals = [time_patterns['hourly_after'].get(h, 0) for h in hours]
     
-    ax.plot(hours, before_vals, marker='o', linewidth=2.5, markersize=6, 
-            label='Before (Dec 5, 2024 - Jan 4, 2025)', color='#3498db')
-    ax.plot(hours, after_vals, marker='s', linewidth=2.5, markersize=6, 
-            label='After (Jan 5 - Feb 4, 2025)', color='#e74c3c')
+    ax.plot(hours, before_vals, marker='o', linewidth=2.5, markersize=6,
+            label=before_label, color='#3498db')
+    ax.plot(hours, after_vals, marker='s', linewidth=2.5, markersize=6,
+            label=after_label, color='#e74c3c')
     
     ax.set_xlabel('Hour of Day', fontweight='bold', fontsize=11)
     ax.set_ylabel('Number of Citations', fontweight='bold', fontsize=11)
@@ -623,7 +623,7 @@ def create_out_of_state_chart(oos_analysis):
 # HTML REPORT GENERATION
 # ============================================================================
 
-def generate_html_report(before_df, after_df, output_path):
+def generate_html_report(before_df, after_df, output_path, before_start, before_end, after_start, after_end):
     """Generate comprehensive HTML report."""
     
     print("\n" + "="*70)
@@ -653,7 +653,11 @@ def generate_html_report(before_df, after_df, output_path):
     print("\nGenerating visualizations...")
     zone_chart = create_zone_comparison_chart(zone_analysis)
     precinct_heatmap = create_precinct_heatmap(precinct_comparison)
-    hourly_chart = create_hourly_comparison(time_patterns)
+    before_range_short = f"{before_start.strftime('%b %d, %Y').replace(' 0', ' ')} - {before_end.strftime('%b %d, %Y').replace(' 0', ' ')}"
+    after_range_short = f"{after_start.strftime('%b %d, %Y').replace(' 0', ' ')} - {after_end.strftime('%b %d, %Y').replace(' 0', ' ')}"
+    before_label = f"Before ({before_range_short})"
+    after_label = f"After ({after_range_short})"
+    hourly_chart = create_hourly_comparison(time_patterns, before_label=before_label, after_label=after_label)
     oos_chart = create_out_of_state_chart(oos_analysis)
     
     # Build HTML
@@ -881,9 +885,9 @@ def generate_html_report(before_df, after_df, output_path):
         
         <div class="summary-box">
             <h2>Executive Summary</h2>
-            <p><strong>Analysis Period:</strong> One month before and after congestion pricing implementation</p>
-            <p><strong>Before Period:</strong> December 5, 2024 - January 4, 2025</p>
-            <p><strong>After Period:</strong> January 5, 2025 - February 4, 2025</p>
+            <p><strong>Analysis Period:</strong> Month immediately after implementation vs same dates one year prior</p>
+            <p><strong>Before Period:</strong> {before_start.strftime('%B %d, %Y').replace(' 0', ' ')} - {before_end.strftime('%B %d, %Y').replace(' 0', ' ')}</p>
+            <p><strong>After Period:</strong> {after_start.strftime('%B %d, %Y').replace(' 0', ' ')} - {after_end.strftime('%B %d, %Y').replace(' 0', ' ')}</p>
             <p><strong>Implementation Date:</strong> January 5, 2025</p>
             <p><strong>Focus Area:</strong> Manhattan only (all precincts 1-34)</p>
             <p><strong>Zone Classification:</strong></p>
@@ -1106,26 +1110,26 @@ def main():
     print("\n" + "="*70)
     print("MANHATTAN CONGESTION PRICING - COMPREHENSIVE ANALYSIS")
     print("="*70)
-    print("\nThis analysis compares Manhattan parking citations one month before")
-    print("and after the congestion pricing implementation on January 5, 2025.")
+    print("\nThis analysis compares Manhattan parking citations in the month")
+    print("immediately after congestion pricing vs the same dates one year prior.")
     print("\nZone Classification:")
     print(f"  • IN ZONE (below 60th St): {len(IN_ZONE_PRECINCTS)} precincts")
     print(f"  • OUT OF ZONE (above 60th St): {len(OUT_OF_ZONE_PRECINCTS)} precincts")
     
-    # Define analysis periods
-    before_start = date(2024, 12, 5)
-    before_end = date(2025, 1, 4)
-    
+    # Define analysis periods (year-over-year matched window)
     after_start = date(2025, 1, 5)
     after_end = date(2025, 2, 4)
+    
+    before_start = date(after_start.year - 1, after_start.month, after_start.day)
+    before_end = date(after_end.year - 1, after_end.month, after_end.day)
     
     # Load data
     print("\n" + "="*70)
     print("STEP 1: LOADING DATA")
     print("="*70)
     
-    before_df = load_manhattan_data(before_start, before_end, "BEFORE Period")
-    after_df = load_manhattan_data(after_start, after_end, "AFTER Period")
+    before_df = load_manhattan_data(before_start, before_end, "BEFORE Period (Year-Over-Year Baseline)")
+    after_df = load_manhattan_data(after_start, after_end, "AFTER Period (Post-Implementation Month)")
     
     if before_df is None or after_df is None:
         print("\n❌ Failed to load required data. Exiting.")
@@ -1143,7 +1147,15 @@ def main():
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     output_file = reports_dir / f'manhattan_congestion_report_{timestamp}.html'
     
-    generate_html_report(before_df, after_df, output_file)
+    generate_html_report(
+        before_df,
+        after_df,
+        output_file,
+        before_start,
+        before_end,
+        after_start,
+        after_end
+    )
     
     print("\n" + "="*70)
     print("✓ ANALYSIS COMPLETE")
