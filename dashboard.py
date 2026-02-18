@@ -18,6 +18,7 @@ Repository: [Your GitHub URL]
 
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from pathlib import Path
@@ -244,6 +245,39 @@ def clean_state_field(state_series):
         return 'UNKNOWN'
     
     return state_series.apply(clean_state)
+
+def add_log_color_column(df, value_col='citations', log_col='log_citations'):
+    """Add a log-transformed column for color scaling (handles zeros with log1p)."""
+    result = df.copy()
+    result[log_col] = np.log1p(pd.to_numeric(result[value_col], errors='coerce').fillna(0).clip(lower=0))
+    return result
+
+def apply_log_colorbar_format(fig, citations_series):
+    """Format colorbar with human-readable citation ticks while using log color scaling."""
+    max_count = pd.to_numeric(citations_series, errors='coerce').fillna(0).max()
+    max_count = max(float(max_count), 0.0)
+
+    if max_count <= 0:
+        raw_ticks = [0]
+    else:
+        max_exponent = int(np.floor(np.log10(max_count)))
+        raw_ticks = [0]
+        raw_ticks.extend([10 ** exp for exp in range(max_exponent + 1)])
+        if int(max_count) not in raw_ticks:
+            raw_ticks.append(int(max_count))
+        raw_ticks = sorted(set(raw_ticks))
+
+    tickvals = np.log1p(raw_ticks)
+    ticktext = [f"{int(tick):,}" for tick in raw_ticks]
+
+    fig.update_coloraxes(
+        colorbar=dict(
+            title='Citations (log scale)',
+            tickvals=tickvals,
+            ticktext=ticktext
+        )
+    )
+    return fig
 
 @st.cache_data(ttl=86400)  # Cache for 24 hours
 def load_sample_data():
@@ -670,6 +704,75 @@ with col4:
     else:
         st.metric("Peak Hour", "N/A")
 
+# Outlier highlights (loaded/test dataset level)
+st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
+st.subheader("🚨 Outlier Highlights (Loaded Test Data)")
+
+out_col1, out_col2 = st.columns(2)
+
+with out_col1:
+    if 'fine_amount' in df.columns and df['fine_amount'].notna().any():
+        fine_series = pd.to_numeric(df['fine_amount'], errors='coerce')
+        if fine_series.notna().any():
+            highest_fine_idx = fine_series.idxmax()
+            highest_fine_row = df.loc[highest_fine_idx]
+            highest_fine_value = fine_series.loc[highest_fine_idx]
+
+            violation_col = 'violation_description' if 'violation_description' in df.columns else ('violation' if 'violation' in df.columns else None)
+            top_fine_violation = highest_fine_row[violation_col] if violation_col and pd.notna(highest_fine_row[violation_col]) else 'N/A'
+
+            st.metric("Highest Fine", f"${highest_fine_value:,.0f}")
+            st.caption(f"Violation: {str(top_fine_violation)[:80]}")
+
+            if 'summons_number' in df.columns and pd.notna(highest_fine_row.get('summons_number')):
+                st.caption(f"Summons: {int(highest_fine_row['summons_number'])}")
+        else:
+            st.metric("Highest Fine", "N/A")
+    else:
+        st.metric("Highest Fine", "N/A")
+
+with out_col2:
+    plate_col = 'plate_masked' if 'plate_masked' in df.columns else ('plate' if 'plate' in df.columns else None)
+    if plate_col and df[plate_col].notna().any():
+        plate_counts = (
+            df[df[plate_col].notna()]
+            .assign(_plate_clean=lambda x: x[plate_col].astype(str).str.strip())
+        )
+        plate_counts = plate_counts[plate_counts['_plate_clean'] != '']
+
+        if len(plate_counts) > 0:
+            plate_top = plate_counts['_plate_clean'].value_counts().head(1)
+            top_plate = plate_top.index[0]
+            top_plate_count = int(plate_top.iloc[0])
+            st.metric("Most-Cited License", top_plate)
+            st.caption(f"Citations: {top_plate_count:,}")
+        else:
+            st.metric("Most-Cited License", "N/A")
+    else:
+        st.metric("Most-Cited License", "N/A")
+
+violation_col = 'violation_description' if 'violation_description' in df.columns else ('violation' if 'violation' in df.columns else None)
+if violation_col and df[violation_col].notna().any():
+    violation_counts = (
+        df[df[violation_col].notna()]
+        .assign(_violation_clean=lambda x: x[violation_col].astype(str).str.strip())
+    )
+    violation_counts = violation_counts[violation_counts['_violation_clean'] != '']
+
+    if len(violation_counts) > 0:
+        rare_violations = (
+            violation_counts['_violation_clean']
+            .value_counts()
+            .rename_axis('Violation')
+            .reset_index(name='Count')
+            .sort_values(['Count', 'Violation'], ascending=[True, True])
+            .head(5)
+            .reset_index(drop=True)
+        )
+
+        st.caption("Rarest citation types (fewest records in loaded test data):")
+        st.dataframe(rare_violations, use_container_width=True, hide_index=True)
+
 st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
 
 # Use responsive columns - stacks on mobile
@@ -775,15 +878,16 @@ with map_col:
                     # Merge with citation data
                     gdf_borough = gdf_borough.merge(borough_data, left_on='borough', right_on='county', how='left')
                     gdf_borough['citations'] = gdf_borough['citations'].fillna(0)
+                    gdf_borough = add_log_color_column(gdf_borough, value_col='citations', log_col='log_citations')
                     
                     # Create borough choropleth
                     fig = px.choropleth_mapbox(
                         gdf_borough,
                         geojson=gdf_borough.geometry.__geo_interface__,
                         locations=gdf_borough.index,
-                        color='citations',
+                        color='log_citations',
                         hover_name='borough',
-                        hover_data={'citations': ':,', gdf_borough.index.name: False},
+                        hover_data={'citations': ':,', 'log_citations': False, gdf_borough.index.name: False},
                         color_continuous_scale='RdYlGn_r',
                         mapbox_style='carto-positron',
                         center={'lat': 40.7128, 'lon': -74.0060},
@@ -795,6 +899,8 @@ with map_col:
                         height=600,
                         margin=dict(l=0, r=0, t=50, b=0)
                     )
+                    fig = apply_log_colorbar_format(fig, gdf_borough['citations'])
+                    st.caption("📝 Colors use a logarithmic scale for readability; hover values show actual citation counts.")
                     
                     # Use Plotly events to capture clicks
                     selected = st.plotly_chart(fig, use_container_width=True, key="nyc_choropleth", on_select="rerun")
@@ -817,15 +923,16 @@ with map_col:
                     
                     gdf_merged = gdf.merge(precinct_agg, left_on='Precinct', right_on='precinct', how='left')
                     gdf_merged['citations'] = gdf_merged['citations'].fillna(0)
+                    gdf_merged = add_log_color_column(gdf_merged, value_col='citations', log_col='log_citations')
                     
                     # Create interactive choropleth with plotly
                     fig = px.choropleth_mapbox(
                         gdf_merged,
                         geojson=gdf_merged.geometry.__geo_interface__,
                         locations=gdf_merged.index,
-                        color='citations',
+                        color='log_citations',
                         hover_name='Precinct',
-                        hover_data={'citations': ':,', 'borough': True, gdf_merged.index.name: False},
+                        hover_data={'citations': ':,', 'borough': True, 'log_citations': False, gdf_merged.index.name: False},
                         color_continuous_scale='RdYlGn_r',
                         mapbox_style='carto-positron',
                         center={'lat': 40.7128, 'lon': -74.0060},
@@ -837,6 +944,8 @@ with map_col:
                         height=600,
                         margin=dict(l=0, r=0, t=50, b=0)
                     )
+                    fig = apply_log_colorbar_format(fig, gdf_merged['citations'])
+                    st.caption("📝 Colors use a logarithmic scale for readability; hover values show actual citation counts.")
                     
                     # Use Plotly events to capture clicks
                     selected = st.plotly_chart(fig, use_container_width=True, key="nyc_choropleth", on_select="rerun")
@@ -920,6 +1029,7 @@ with map_col:
                 # Merge citation data with geodata
                 gdf_merged = gdf.merge(precinct_data, left_on='Precinct', right_on='precinct', how='left')
                 gdf_merged['citations'] = gdf_merged['citations'].fillna(0)
+                gdf_merged = add_log_color_column(gdf_merged, value_col='citations', log_col='log_citations')
                 
                 # Filter to only show precincts in selected borough
                 borough_precinct_map = {
@@ -953,10 +1063,11 @@ with map_col:
                     gdf_merged,
                     geojson=gdf_merged.geometry.__geo_interface__,
                     locations=gdf_merged.index,
-                    color='citations',
+                    color='log_citations',
                     hover_name='Precinct',
                     hover_data={
                         'citations': ':,',
+                        'log_citations': False,
                         'Precinct': False  # Hide the index column
                     },
                     color_continuous_scale='RdYlGn_r',
@@ -970,6 +1081,8 @@ with map_col:
                     height=600,
                     margin=dict(l=0, r=0, t=50, b=0)
                 )
+                fig = apply_log_colorbar_format(fig, gdf_merged['citations'])
+                st.caption("📝 Colors use a logarithmic scale for readability; hover values show actual citation counts.")
                 
                 # Enable click to select precinct
                 selected = st.plotly_chart(fig, use_container_width=True, key="precinct_map", on_select="rerun")
