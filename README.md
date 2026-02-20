@@ -25,7 +25,8 @@ This project provides an interactive Streamlit dashboard to analyze millions of 
 ### 🗺️ Geographic Visualization
 - **Interactive Choropleth Maps**: Color-coded precinct maps showing citation density
 - **Click-to-Explore**: Click any precinct to view detailed statistics
-- **Red-Green Color Scale**: Intuitive visualization from low (green) to high (red) enforcement
+- **Log-Scaled Red-Green Color Scale**: Colors use logarithmic scaling for better visual separation across low and high citation counts
+- **Human-Readable Legend**: Map colorbar ticks display real citation counts (while color intensity is log-scaled)
 - **Borough-Level Zoom**: Automatic map centering for focused analysis
 
 ### 📈 Rich Visualizations
@@ -34,6 +35,7 @@ This project provides an interactive Streamlit dashboard to analyze millions of 
 - Hourly enforcement patterns
 - Day of week distributions
 - Fine amount analysis
+- Outlier highlights (highest fine, most-cited license, rarest citation types)
 - Vehicle registration state breakdowns
 - Top streets by citations
 
@@ -246,6 +248,7 @@ All processed data is automatically saved to `data/processed/` with timestamps:
 - **Geographic Patterns**: Identify enforcement hotspots via interactive maps
 - **Temporal Trends**: Understand daily, hourly, and weekly patterns
 - **Violation Analysis**: Compare fine amounts and violation types
+- **Outlier Detection**: Quickly identify extreme fines, repeated-license patterns, and rare citation categories
 - **Deployment Ready**: One-click deploy to Streamlit Cloud
 
 ## Contributing
