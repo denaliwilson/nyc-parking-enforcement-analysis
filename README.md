@@ -173,7 +173,21 @@ Deploy your own dashboard to Streamlit Community Cloud:
 3. Connect your repository
 4. Deploy with one click
 
-See [SETUP.md](SETUP.md) for detailed deployment instructions.
+See [documentation/SETUP.md](documentation/SETUP.md) for detailed deployment instructions.
+
+## Documentation
+
+Project documentation is organized in the `documentation/` folder:
+
+- [documentation/SETUP.md](documentation/SETUP.md)
+- [documentation/DEPLOYMENT.md](documentation/DEPLOYMENT.md)
+- [documentation/PROJECT_STRUCTURE.md](documentation/PROJECT_STRUCTURE.md)
+- [documentation/DATA_DICTIONARY.md](documentation/DATA_DICTIONARY.md)
+- [documentation/DATA_SOURCES.md](documentation/DATA_SOURCES.md)
+- [documentation/CONGESTION_ANALYSIS.md](documentation/CONGESTION_ANALYSIS.md)
+- [documentation/MANHATTAN_CONGESTION_REPORT.md](documentation/MANHATTAN_CONGESTION_REPORT.md)
+- [documentation/SUMMARY.md](documentation/SUMMARY.md)
+- [documentation/CHANGELOG.md](documentation/CHANGELOG.md)
 
 ## Project Structure
 
@@ -199,13 +213,16 @@ nyc-parking-enforcement-analysis/
 ├── outputs/
 │   ├── figures/               # Generated charts (for reports)
 │   └── reports/               # HTML analysis reports
-├── notebooks/                 # Jupyter notebooks for exploration
-└── Documentation/
-    ├── README.md              # This file
-    ├── SETUP.md               # Installation and deployment guide
-    ├── DATA_DICTIONARY.md     # Field definitions
-    ├── DATA_SOURCES.md        # API documentation
-    └── PROJECT_STRUCTURE.md   # Detailed structure
+└── documentation/
+  ├── SETUP.md               # Installation and deployment guide
+  ├── DEPLOYMENT.md          # Streamlit deployment guide
+  ├── PROJECT_STRUCTURE.md   # Detailed project tree and file roles
+  ├── DATA_DICTIONARY.md     # Field definitions and quality notes
+  ├── DATA_SOURCES.md        # API and source references
+  ├── CONGESTION_ANALYSIS.md # Congestion pricing analysis approach
+  ├── MANHATTAN_CONGESTION_REPORT.md # Manhattan report details
+  ├── SUMMARY.md             # High-level project summary
+  └── CHANGELOG.md           # Version history
 ```
 
 ## Usage Examples
