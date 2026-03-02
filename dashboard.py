@@ -916,50 +916,86 @@ with map_col:
                                 st.rerun()
                 else:
                     # Precinct Detail View
-                    # Merge citation data with geodata using filtered data
-                    precinct_citations = filtered_df[pd.to_numeric(filtered_df['precinct'], errors='coerce').notna()].copy()
-                    precinct_citations['precinct'] = pd.to_numeric(precinct_citations['precinct'], errors='coerce').astype(int)
-                    precinct_agg = precinct_citations.groupby('precinct').size().reset_index(name='citations')
-                    
-                    gdf_merged = gdf.merge(precinct_agg, left_on='Precinct', right_on='precinct', how='left')
-                    gdf_merged['citations'] = gdf_merged['citations'].fillna(0)
-                    gdf_merged = add_log_color_column(gdf_merged, value_col='citations', log_col='log_citations')
-                    
-                    # Create interactive choropleth with plotly
-                    fig = px.choropleth_mapbox(
-                        gdf_merged,
-                        geojson=gdf_merged.geometry.__geo_interface__,
-                        locations=gdf_merged.index,
-                        color='log_citations',
-                        hover_name='Precinct',
-                        hover_data={'citations': ':,', 'borough': True, 'log_citations': False, gdf_merged.index.name: False},
-                        color_continuous_scale='RdYlGn_r',
-                        mapbox_style='carto-positron',
-                        center={'lat': 40.7128, 'lon': -74.0060},
-                        zoom=9.5,
-                        opacity=0.7,
-                        title='NYC Parking Citations by Precinct - Click a precinct to drill down'
-                    )
-                    fig.update_layout(
-                        height=600,
-                        margin=dict(l=0, r=0, t=50, b=0)
-                    )
-                    fig = apply_log_colorbar_format(fig, gdf_merged['citations'])
-                    st.caption("📝 Colors use a logarithmic scale for readability; hover values show actual citation counts.")
-                    
-                    # Use Plotly events to capture clicks
-                    selected = st.plotly_chart(fig, use_container_width=True, key="nyc_choropleth", on_select="rerun")
-                    
-                    # Handle click selection
-                    if selected and 'selection' in selected and 'points' in selected['selection']:
-                        points = selected['selection']['points']
-                        if points:
-                            clicked_idx = points[0]['location']
-                            clicked_precinct = gdf_merged.iloc[clicked_idx]['Precinct']
-                            clicked_borough = gdf_merged.iloc[clicked_idx]['borough']
-                            if pd.notna(clicked_borough):
-                                st.session_state.selected_borough = clicked_borough
-                                st.rerun()
+                    # Ensure precinct data is available before attempting this view
+                    if 'precinct' not in filtered_df.columns:
+                        st.warning("Precinct-level data is not available for this dataset. Showing borough view instead.")
+                        # Fall back to the borough bar chart so the app doesn't crash
+                        borough_data_fallback = borough_data.sort_values('citations', ascending=True)
+                        fig = px.bar(
+                            borough_data_fallback,
+                            y='county',
+                            x='citations',
+                            orientation='h',
+                            title='Citations by Borough',
+                            labels={'county': 'Borough', 'citations': 'Number of Citations'},
+                            color='citations',
+                            color_continuous_scale='RdYlGn_r'
+                        )
+                        fig.update_traces(
+                            text=borough_data_fallback['citations'],
+                            texttemplate='%{text:,}',
+                            textposition='outside',
+                            hovertemplate='<b>%{y}</b><br>Citations: %{x:,}<extra></extra>'
+                        )
+                        fig.update_layout(
+                            height=500,
+                            showlegend=False,
+                            yaxis={'categoryorder': 'total ascending'},
+                            xaxis_title='Number of Citations',
+                            yaxis_title='',
+                            coloraxis_showscale=False,
+                            margin=dict(l=150, r=50, t=50, b=50)
+                        )
+                        st.plotly_chart(fig, use_container_width=True, key="borough_map_precinct_fallback")
+                    else:
+                        # Merge citation data with geodata using filtered data
+                        precinct_citations = filtered_df[pd.to_numeric(filtered_df['precinct'], errors='coerce').notna()].copy()
+                        precinct_citations['precinct'] = pd.to_numeric(precinct_citations['precinct'], errors='coerce').astype(int)
+                        precinct_agg = precinct_citations.groupby('precinct').size().reset_index(name='citations')
+
+                        gdf_merged = gdf.merge(precinct_agg, left_on='Precinct', right_on='precinct', how='left')
+                        gdf_merged['citations'] = gdf_merged['citations'].fillna(0)
+                        gdf_merged = add_log_color_column(gdf_merged, value_col='citations', log_col='log_citations')
+
+                        # Create interactive choropleth with plotly
+                        fig = px.choropleth_mapbox(
+                            gdf_merged,
+                            geojson=gdf_merged.geometry.__geo_interface__,
+                            locations=gdf_merged.index,
+                            color='log_citations',
+                            hover_name='Precinct',
+                            hover_data={'citations': ':,', 'borough': True, 'log_citations': False, gdf_merged.index.name: False},
+                            color_continuous_scale='RdYlGn_r',
+                            mapbox_style='carto-positron',
+                            center={'lat': 40.7128, 'lon': -74.0060},
+                            zoom=9.5,
+                            opacity=0.7,
+                            title='NYC Parking Citations by Precinct - Click a precinct to drill down'
+                        )
+                        fig.update_layout(
+                            height=600,
+                            margin=dict(l=0, r=0, t=50, b=0)
+                        )
+                        fig = apply_log_colorbar_format(fig, gdf_merged['citations'])
+                        st.caption("📝 Colors use a logarithmic scale for readability; hover values show actual citation counts.")
+
+                        # Use Plotly events to capture clicks
+                        selected = st.plotly_chart(fig, use_container_width=True, key="nyc_choropleth", on_select="rerun")
+
+                        # Handle click selection
+                        if selected and 'selection' in selected and 'points' in selected['selection']:
+                            points = selected['selection']['points']
+                            if points:
+                                clicked_idx = points[0].get('pointNumber', points[0].get('pointIndex', points[0].get('location')))
+                                if clicked_idx is not None and clicked_idx < len(gdf_merged):
+                                    clicked_precinct = gdf_merged.iloc[clicked_idx]['Precinct']
+                                    clicked_borough = gdf_merged.iloc[clicked_idx]['borough']
+                                    if pd.notna(clicked_precinct):
+                                        st.session_state.selected_precinct = int(clicked_precinct)
+                                    if pd.notna(clicked_borough):
+                                        st.session_state.selected_borough = clicked_borough
+                                    if pd.notna(clicked_precinct) or pd.notna(clicked_borough):
+                                        st.rerun()
             else:
                 # Fallback to bar chart if map fails
                 borough_data = borough_data.sort_values('citations', ascending=True)
