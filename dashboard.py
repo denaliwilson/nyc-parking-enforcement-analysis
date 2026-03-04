@@ -27,6 +27,15 @@ import sys
 import importlib
 import json
 
+
+def debug_log(message: str) -> None:
+    """Lightweight debug logger for terminal output while diagnosing issues."""
+    try:
+        print(f"[DASHBOARD DEBUG] {message}", flush=True)
+    except Exception:
+        # Failsafe: never let logging break the app
+        pass
+
 # Add project path
 sys.path.append(str(Path(__file__).parent))
 
@@ -440,6 +449,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Initialize session state for drill-down and data persistence
+debug_log("Dashboard module loaded; initializing session state.")
+
 if 'selected_borough' not in st.session_state:
     st.session_state.selected_borough = None
 if 'selected_precinct' not in st.session_state:
@@ -461,7 +472,7 @@ if st.session_state.data_loaded and st.session_state.df is not None:
     with col1:
         st.markdown(f"**{len(st.session_state.df):,} citations loaded**")
     with col2:
-        if st.button("Load New Dates", type="primary", width="stretch"):
+        if st.button("Load New Dates", type="primary", use_container_width=True):
             st.session_state.data_loaded = False
             st.session_state.df = None
             st.session_state.selected_borough = None
@@ -549,7 +560,7 @@ else:
     st.markdown("#### Quick Start:")
     
     # Button to load preloaded monthly data
-    if st.button("📂 Load January 2026 Sample Data (860K citations)", type="primary", width="stretch"):
+    if st.button("📂 Load January 2026 Sample Data (860K citations)", type="primary", use_container_width=True):
         with st.spinner("Loading January 2026 sample data..."):
             df = load_sample_data()
             
@@ -589,7 +600,7 @@ else:
     
     # Load button - only show if date range is complete
     if show_load_button:
-        if st.button("🔄 Load Custom Date Range from API", type="secondary", width="stretch"):
+        if st.button("🔄 Load Custom Date Range from API", type="secondary", use_container_width=True):
             loading_container = st.empty()
             
             with loading_container.container():
@@ -668,6 +679,8 @@ if active_filters:
     st.caption("💡 **Tip:** You can drill down by clicking on the map, state bars, or agency bars. All charts update automatically with your filters!")
 else:
     st.success("✨ **No filters active** — Showing all data. Click the map or charts to drill down!")
+
+debug_log(f"Initial df loaded: shape={df.shape}, columns={list(df.columns)}")
 
 # Top metrics
 st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
@@ -771,7 +784,7 @@ if violation_col and df[violation_col].notna().any():
         )
 
         st.caption("Rarest citation types (fewest records in loaded test data):")
-        st.dataframe(rare_violations, hide_index=True, width="stretch")
+        st.dataframe(rare_violations, hide_index=True, use_container_width=True)
 
 st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
 
@@ -820,7 +833,7 @@ with map_col:
         st.session_state.selected_state or st.session_state.selected_agency):
         col_btn1, col_btn2 = st.columns([1, 3])
         with col_btn1:
-            if st.button("🔄 Clear All Filters", type="primary", width="stretch"):
+            if st.button("🔄 Clear All Filters", type="primary", use_container_width=True):
                 st.session_state.selected_borough = None
                 st.session_state.selected_precinct = None
                 st.session_state.selected_state = None
@@ -891,7 +904,7 @@ with map_col:
                         color_continuous_scale='RdYlGn_r',
                         mapbox_style='carto-positron',
                         center={'lat': 40.7128, 'lon': -74.0060},
-                        zoom=9.5,
+                        zoom=10,
                         opacity=0.7,
                         title='NYC Parking Citations by Borough - Click a borough to drill down'
                     )
@@ -905,7 +918,7 @@ with map_col:
                     # Use Plotly events to capture clicks
                     chart_state = st.plotly_chart(
                         fig,
-                        width="stretch",
+                        use_container_width=True,
                         key="nyc_choropleth",
                         on_select="rerun",
                     )
@@ -953,7 +966,7 @@ with map_col:
                             coloraxis_showscale=False,
                             margin=dict(l=150, r=50, t=50, b=50)
                         )
-                        st.plotly_chart(fig, key="borough_map_precinct_fallback", width="stretch")
+                        st.plotly_chart(fig, key="borough_map_precinct_fallback", use_container_width=True)
                     else:
                         # Merge citation data with geodata using filtered data
                         precinct_citations = filtered_df[pd.to_numeric(filtered_df['precinct'], errors='coerce').notna()].copy()
@@ -975,7 +988,7 @@ with map_col:
                             color_continuous_scale='RdYlGn_r',
                             mapbox_style='carto-positron',
                             center={'lat': 40.7128, 'lon': -74.0060},
-                            zoom=9.5,
+                            zoom=10,
                             opacity=0.7,
                             title='NYC Parking Citations by Precinct - Click a precinct to drill down'
                         )
@@ -989,7 +1002,7 @@ with map_col:
                         # Use Plotly events to capture clicks
                         chart_state = st.plotly_chart(
                             fig,
-                            width="stretch",
+                            use_container_width=True,
                             key="nyc_choropleth",
                             on_select="rerun",
                         )
@@ -1040,7 +1053,7 @@ with map_col:
                     margin=dict(l=150, r=50, t=50, b=50)
                 )
                 
-                st.plotly_chart(fig, key="borough_map", width="stretch")
+                st.plotly_chart(fig, key="borough_map", use_container_width=True)
             
             # No buttons needed - click the map to drill down
         except Exception as e:
@@ -1123,7 +1136,7 @@ with map_col:
                     color_continuous_scale='RdYlGn_r',
                     mapbox_style='carto-positron',
                     center=center,
-                    zoom=10.5,
+                    zoom=10,
                     opacity=0.7,
                     title=f'{st.session_state.selected_borough} - Click a precinct for details'
                 )
@@ -1137,7 +1150,7 @@ with map_col:
                 # Enable click to select precinct
                 chart_state = st.plotly_chart(
                     fig,
-                    width="stretch",
+                    use_container_width=True,
                     key="precinct_map",
                     on_select="rerun",
                 )
@@ -1270,7 +1283,7 @@ with map_col:
                             yaxis_title='Citations',
                             xaxis=dict(dtick=2, range=[-0.5, 23.5])
                         )
-                        st.plotly_chart(fig, width="stretch")
+                        st.plotly_chart(fig, use_container_width=True)
                 
                 with chart_cols[1]:
                     # Day of week distribution
@@ -1298,7 +1311,7 @@ with map_col:
                             yaxis_title='Citations'
                         )
                         fig.update_xaxes(tickangle=-45)
-                        st.plotly_chart(fig, width="stretch")
+                        st.plotly_chart(fig, use_container_width=True)
                 
                 # Top violations table
                 st.markdown("### Top Violations")
@@ -1310,7 +1323,7 @@ with map_col:
                     violation_data.columns = ['Violation', 'Count', 'Total Fines']
                     violation_data = violation_data.sort_values('Count', ascending=False).head(10)
                     violation_data['Total Fines'] = violation_data['Total Fines'].apply(lambda x: f"${x:,.0f}")
-                    st.dataframe(violation_data, hide_index=True, width="stretch")
+                    st.dataframe(violation_data, hide_index=True, use_container_width=True)
             else:
                 st.warning(f"No data available for Precinct {precinct_num}")
         except Exception as e:
@@ -1344,7 +1357,7 @@ with time_col:
             yaxis_title='Citations',
             xaxis=dict(dtick=2, range=[-0.5, 23.5])
         )
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
     
     # Show day of week distribution
     if 'issue_date' in filtered_df.columns:
@@ -1371,7 +1384,7 @@ with time_col:
             yaxis_title='Citations',
             xaxis={'tickangle': -45}
         )
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
 
 # Bottom section - summary stats for selected area
 st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
@@ -1423,14 +1436,23 @@ if 'violation_description' in filtered_df.columns:
         textposition='outside',
         hovertemplate='<b>%{y}</b><br>Count: %{x:,}<extra></extra>'
     )
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig, use_container_width=True)
 
 # State analysis (vehicle registration state)
 if 'state' in filtered_df.columns:
+    debug_log(
+        f"Entering state analysis with filtered_df shape={filtered_df.shape}, "
+        f"states_sample={filtered_df['state'].head(5).tolist()}"
+    )
     st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
     
     # Clean state field
+    debug_log("Cleaning state field via clean_state_field().")
     filtered_df['state'] = clean_state_field(filtered_df['state'])
+    debug_log(
+        "State field cleaned; top 5 states="
+        f"{filtered_df['state'].value_counts().head(5).to_dict()}"
+    )
     
     # Collapse section if state filter is active
     if st.session_state.selected_state:
@@ -1475,25 +1497,39 @@ if 'state' in filtered_df.columns:
             )
             
             # Enable click interaction
+            debug_log("Rendering state_chart plotly bar chart.")
             chart_state = st.plotly_chart(
                 fig,
-                width="stretch",
+                use_container_width=True,
                 key="state_chart",
                 on_select="rerun",
             )
 
             # Handle click to filter by state
             selection = getattr(chart_state, "selection", None)
+            debug_log(f"state_chart selection object: {selection!r}")
             if selection and isinstance(selection, dict):
                 points = selection.get("points") or []
+                debug_log(f"state_chart points: {points!r}")
                 if points:
                     clicked_state = points[0].get('y')
+                    debug_log(f"Clicked state from chart: {clicked_state!r}")
                     if clicked_state and clicked_state != 'UNKNOWN':
-                        if st.session_state.selected_state == clicked_state:
+                        prev_state = st.session_state.get('selected_state')
+                        if prev_state == clicked_state:
                             # Click again to deselect
+                            debug_log(
+                                f"Toggling off state filter for {clicked_state}; "
+                                f"previous selected_state={prev_state!r}"
+                            )
                             st.session_state.selected_state = None
                         else:
+                            debug_log(
+                                f"Setting state filter to {clicked_state}; "
+                                f"previous selected_state={prev_state!r}"
+                            )
                             st.session_state.selected_state = clicked_state
+                        debug_log("Triggering rerun after state selection.")
                         st.rerun()
         
         with col2:
@@ -1561,7 +1597,7 @@ if 'issuing_agency' in filtered_df.columns:
                 # Enable click interaction
                 chart_state = st.plotly_chart(
                     fig,
-                    width="stretch",
+                    use_container_width=True,
                     key="agency_chart_bar",
                     on_select="rerun",
                 )
@@ -1607,7 +1643,7 @@ if 'issuing_agency' in filtered_df.columns:
                 # Enable click interaction
                 chart_state = st.plotly_chart(
                     fig,
-                    width="stretch",
+                    use_container_width=True,
                     key="agency_chart_pie",
                     on_select="rerun",
                 )
