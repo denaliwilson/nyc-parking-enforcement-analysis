@@ -28,14 +28,6 @@ import importlib
 import json
 
 
-def debug_log(message: str) -> None:
-    """Lightweight debug logger for terminal output while diagnosing issues."""
-    try:
-        print(f"[DASHBOARD DEBUG] {message}", flush=True)
-    except Exception:
-        # Failsafe: never let logging break the app
-        pass
-
 # Add project path
 sys.path.append(str(Path(__file__).parent))
 
@@ -290,85 +282,93 @@ def apply_log_colorbar_format(fig, citations_series):
 
 @st.cache_data(ttl=86400)  # Cache for 24 hours
 def load_sample_data():
+    """Load the latest complete month of cleaned citation data.
+
+    Strategy:
+    1. Determine the last fully completed calendar month based on
+       the latest available issue date from NYC Open Data.
+    2. Try to load a preprocessed monthly CSV for that month from
+       PROCESSED_DATA_DIR (pattern: parking_cleaned_citations_month_YYYY-MM_*.csv).
+    3. If no local monthly file exists, fetch that month day-by-day
+       from the API, run it through the cleaner, and cache it locally.
     """
-    Load preloaded January 2026 sample data.
-    
-    If the file doesn't exist locally, fetches from NYC Open Data API
-    for January 2026 and caches it.
-    
-    Returns:
-        DataFrame: Cleaned parking citation data for January 2026 (~860K records, Jan 1-31)
-    """
-    sample_file = PROCESSED_DATA_DIR / 'jan_2026_sample_data.csv'
-    
-    # Try loading existing file first
-    if sample_file.exists():
+    import re
+    from datetime import date
+    from calendar import monthrange
+
+    # 1) Determine last complete month using latest available issue_date
+    latest_available = get_latest_available_date()
+    first_of_current = latest_available.replace(day=1)
+    last_day_prev_month = first_of_current - timedelta(days=1)
+    target_year = last_day_prev_month.year
+    target_month = last_day_prev_month.month
+    target_month_str = f"{target_year:04d}-{target_month:02d}"
+
+    # 2) Look for a preprocessed monthly CSV for this month
+    month_pattern = f"parking_cleaned_citations_month_{target_month_str}_*.csv"
+    month_files = list(PROCESSED_DATA_DIR.glob(month_pattern))
+
+    if month_files:
+        # Use the most recently modified matching file
+        latest_file = max(month_files, key=lambda p: p.stat().st_mtime)
         try:
-            st.info(f"📂 Loading from local file: {sample_file.name}")
-            df = pd.read_csv(sample_file)
+            df = pd.read_csv(latest_file)
             if 'issue_date' in df.columns:
                 df['issue_date'] = pd.to_datetime(df['issue_date'])
-            st.success(f"✅ Loaded {len(df):,} citations from January 2026 (local file)")
             return df
-        except Exception as e:
-            st.warning(f"⚠️ Could not load local file: {e}")
-            st.info("Falling back to API fetch...")
-    
-    # If file doesn't exist, fetch from API and cache
-    st.warning("⚠️ Local sample file not found. Fetching from NYC Open Data API...")
-    st.info("This may take a few minutes. Data will be cached for future use.")
-    
-    try:
-        # Fetch January 2026 data from API
-        from datetime import date
-        loader_temp = NYCParkingDataLoader()
-        cleaner_temp = ParkingDataCleaner()
-        
-        # Load January 2026 (days 1-31)
-        all_dfs = []
-        start_date = date(2026, 1, 1)
-        end_date = date(2026, 1, 31)
-        current_date = start_date
-        
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        days_total = (end_date - start_date).days + 1
-        day_count = 0
-        
-        while current_date <= end_date:
-            day_count += 1
-            date_str = current_date.strftime('%Y-%m-%d')
-            status_text.text(f"Fetching day {day_count}/{days_total}: {date_str}")
-            
-            day_df = loader_temp.load_by_day(date_str)
-            if day_df is not None and len(day_df) > 0:
-                all_dfs.append(day_df)
-            
-            current_date = current_date + timedelta(days=1)
-            progress_bar.progress(day_count / days_total)
-        
-        progress_bar.empty()
-        status_text.empty()
-        
-        if all_dfs:
-            st.info("Cleaning and processing data...")
-            raw_df = pd.concat(all_dfs, ignore_index=True)
-            df = cleaner_temp.clean_dataframe(raw_df)
-            
-            # Save for future use
-            st.info("Saving to local cache...")
-            PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
-            df.to_csv(sample_file, index=False)
-            st.success(f"✅ Fetched and cached {len(df):,} citations")
-            
-            return df
-        else:
-            st.error("❌ No data found for January 2026")
-            return None
-    except Exception as e:
-        st.error(f"❌ Error fetching sample data from API: {e}")
+        except Exception:
+            # If anything goes wrong, fall back to API fetch
+            pass
+
+    # 3) Fallback: fetch this month from the API and clean it
+    loader_temp = NYCParkingDataLoader()
+    cleaner_temp = ParkingDataCleaner()
+
+    all_dfs = []
+    start_date = date(target_year, target_month, 1)
+    last_day = monthrange(target_year, target_month)[1]
+    end_date = date(target_year, target_month, last_day)
+    current_date = start_date
+
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+
+    days_total = (end_date - start_date).days + 1
+    day_count = 0
+
+    while current_date <= end_date:
+        day_count += 1
+        date_str = current_date.strftime('%Y-%m-%d')
+        status_text.text(f"Fetching {date_str} ({day_count}/{days_total})")
+
+        day_df = loader_temp.load_by_day(date_str)
+        if day_df is not None and len(day_df) > 0:
+            all_dfs.append(day_df)
+
+        current_date = current_date + timedelta(days=1)
+        progress_bar.progress(day_count / days_total)
+
+    progress_bar.empty()
+    status_text.empty()
+
+    if not all_dfs:
+        st.error("❌ No data found for the latest complete month.")
         return None
+
+    # Clean and cache the combined data
+    raw_df = pd.concat(all_dfs, ignore_index=True)
+    df = cleaner_temp.clean_dataframe(raw_df)
+
+    PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    cache_filename = f"parking_cleaned_citations_month_{target_month_str}_{len(df)}-records.csv"
+    cache_path = PROCESSED_DATA_DIR / cache_filename
+    try:
+        df.to_csv(cache_path, index=False)
+    except Exception:
+        # Caching is best-effort; ignore failures
+        pass
+
+    return df
 
 loader = get_loader()
 cleaner = get_cleaner()
@@ -449,8 +449,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Initialize session state for drill-down and data persistence
-debug_log("Dashboard module loaded; initializing session state.")
-
 if 'selected_borough' not in st.session_state:
     st.session_state.selected_borough = None
 if 'selected_precinct' not in st.session_state:
@@ -558,10 +556,16 @@ else:
     st.markdown(f"#### 📊 Latest Data Available: **{latest_date.strftime('%B %d, %Y')}**")
     
     st.markdown("#### Quick Start:")
+
+    # Compute label for the latest complete month
+    first_of_current_month = latest_date.replace(day=1)
+    last_day_previous_month = first_of_current_month - timedelta(days=1)
+    latest_complete_month_label = last_day_previous_month.strftime("%B %Y")
+    quick_load_label = f"📂 Load Latest Complete Month ({latest_complete_month_label})"
     
-    # Button to load preloaded monthly data
-    if st.button("📂 Load January 2026 Sample Data (860K citations)", type="primary", use_container_width=True):
-        with st.spinner("Loading January 2026 sample data..."):
+    # Button to load latest complete monthly data
+    if st.button(quick_load_label, type="primary", use_container_width=True):
+        with st.spinner(f"Loading {latest_complete_month_label} citation data (latest complete month)..."):
             df = load_sample_data()
             
             if df is not None and len(df) > 0:
@@ -569,7 +573,7 @@ else:
                 st.session_state.df = df
                 st.rerun()
             else:
-                st.error("Unable to load sample data. Please try custom date range below.")
+                st.error("Unable to load the latest complete month. Please try custom date range below.")
     
     st.markdown("#### Or Choose Custom Date Range:")
     
@@ -680,8 +684,6 @@ if active_filters:
 else:
     st.success("✨ **No filters active** — Showing all data. Click the map or charts to drill down!")
 
-debug_log(f"Initial df loaded: shape={df.shape}, columns={list(df.columns)}")
-
 # Top metrics
 st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
 
@@ -754,11 +756,17 @@ with out_col2:
         plate_counts = plate_counts[plate_counts['_plate_clean'] != '']
 
         if len(plate_counts) > 0:
-            plate_top = plate_counts['_plate_clean'].value_counts().head(1)
-            top_plate = plate_top.index[0]
-            top_plate_count = int(plate_top.iloc[0])
-            st.metric("Most-Cited License", top_plate)
-            st.caption(f"Citations: {top_plate_count:,}")
+            top_plates = (
+                plate_counts['_plate_clean']
+                .value_counts()
+                .head(5)
+                .reset_index()
+            )
+            top_plates.columns = ['License Plate', 'Citations']
+
+            st.markdown("**Top 5 Offending License Plates**")
+            for _, row in top_plates.iterrows():
+                st.caption(f"{row['License Plate']}: {int(row['Citations']):,} citations")
         else:
             st.metric("Most-Cited License", "N/A")
     else:
@@ -1058,11 +1066,6 @@ with map_col:
             # No buttons needed - click the map to drill down
         except Exception as e:
             st.error(f"Error displaying borough map: {e}")
-            st.write("Debug info:")
-            st.write(f"Columns in df: {df.columns.tolist()}")
-            st.write(f"Shape: {df.shape}")
-            import traceback
-            st.code(traceback.format_exc())
     
     # Precinct-level view (when borough is selected, but no specific precinct)
     elif st.session_state.selected_borough and not st.session_state.selected_precinct and 'precinct' in filtered_df.columns:
@@ -1204,8 +1207,6 @@ with map_col:
             # Map interaction handles precinct selection
         except Exception as e:
             st.error(f"Error displaying precinct map: {e}")
-            import traceback
-            st.code(traceback.format_exc())
     
     # Individual Precinct Detail View
     elif st.session_state.selected_precinct and 'precinct' in filtered_df.columns:
@@ -1328,8 +1329,6 @@ with map_col:
                 st.warning(f"No data available for Precinct {precinct_num}")
         except Exception as e:
             st.error(f"Error displaying precinct details: {e}")
-            import traceback
-            st.code(traceback.format_exc())
 
 with time_col:
     st.subheader("Time Distribution")
@@ -1440,19 +1439,10 @@ if 'violation_description' in filtered_df.columns:
 
 # State analysis (vehicle registration state)
 if 'state' in filtered_df.columns:
-    debug_log(
-        f"Entering state analysis with filtered_df shape={filtered_df.shape}, "
-        f"states_sample={filtered_df['state'].head(5).tolist()}"
-    )
     st.markdown('<div class="stDivider"></div>', unsafe_allow_html=True)
     
     # Clean state field
-    debug_log("Cleaning state field via clean_state_field().")
     filtered_df['state'] = clean_state_field(filtered_df['state'])
-    debug_log(
-        "State field cleaned; top 5 states="
-        f"{filtered_df['state'].value_counts().head(5).to_dict()}"
-    )
     
     # Collapse section if state filter is active
     if st.session_state.selected_state:
@@ -1497,7 +1487,6 @@ if 'state' in filtered_df.columns:
             )
             
             # Enable click interaction
-            debug_log("Rendering state_chart plotly bar chart.")
             chart_state = st.plotly_chart(
                 fig,
                 use_container_width=True,
@@ -1507,29 +1496,17 @@ if 'state' in filtered_df.columns:
 
             # Handle click to filter by state
             selection = getattr(chart_state, "selection", None)
-            debug_log(f"state_chart selection object: {selection!r}")
             if selection and isinstance(selection, dict):
                 points = selection.get("points") or []
-                debug_log(f"state_chart points: {points!r}")
                 if points:
                     clicked_state = points[0].get('y')
-                    debug_log(f"Clicked state from chart: {clicked_state!r}")
                     if clicked_state and clicked_state != 'UNKNOWN':
                         prev_state = st.session_state.get('selected_state')
                         if prev_state == clicked_state:
                             # Click again to deselect
-                            debug_log(
-                                f"Toggling off state filter for {clicked_state}; "
-                                f"previous selected_state={prev_state!r}"
-                            )
                             st.session_state.selected_state = None
                         else:
-                            debug_log(
-                                f"Setting state filter to {clicked_state}; "
-                                f"previous selected_state={prev_state!r}"
-                            )
                             st.session_state.selected_state = clicked_state
-                        debug_log("Triggering rerun after state selection.")
                         st.rerun()
         
         with col2:
