@@ -903,17 +903,24 @@ with map_col:
                     st.caption("📝 Colors use a logarithmic scale for readability; hover values show actual citation counts.")
                     
                     # Use Plotly events to capture clicks
-                    selected = st.plotly_chart(fig, use_container_width=True, key="nyc_choropleth", on_select="rerun")
-                    
-                    # Handle click selection
-                    if selected and 'selection' in selected and 'points' in selected['selection']:
-                        points = selected['selection']['points']
+                    chart_state = st.plotly_chart(
+                        fig,
+                        use_container_width=True,
+                        key="nyc_choropleth",
+                        on_select="rerun",
+                    )
+
+                    # Handle click selection using PlotlyState API
+                    selection = getattr(chart_state, "selection", None)
+                    if selection and isinstance(selection, dict):
+                        points = selection.get("points") or []
                         if points:
-                            clicked_idx = points[0]['location']
-                            clicked_borough = gdf_borough.iloc[clicked_idx]['borough']
-                            if pd.notna(clicked_borough):
-                                st.session_state.selected_borough = clicked_borough
-                                st.rerun()
+                            clicked_idx = points[0].get("location")
+                            if clicked_idx is not None and clicked_idx < len(gdf_borough):
+                                clicked_borough = gdf_borough.iloc[clicked_idx]['borough']
+                                if pd.notna(clicked_borough):
+                                    st.session_state.selected_borough = clicked_borough
+                                    st.rerun()
                 else:
                     # Precinct Detail View
                     # Ensure precinct data is available before attempting this view
@@ -980,13 +987,20 @@ with map_col:
                         st.caption("📝 Colors use a logarithmic scale for readability; hover values show actual citation counts.")
 
                         # Use Plotly events to capture clicks
-                        selected = st.plotly_chart(fig, use_container_width=True, key="nyc_choropleth", on_select="rerun")
+                        chart_state = st.plotly_chart(
+                            fig,
+                            use_container_width=True,
+                            key="nyc_choropleth",
+                            on_select="rerun",
+                        )
 
-                        # Handle click selection
-                        if selected and 'selection' in selected and 'points' in selected['selection']:
-                            points = selected['selection']['points']
+                        # Handle click selection using PlotlyState API
+                        selection = getattr(chart_state, "selection", None)
+                        if selection and isinstance(selection, dict):
+                            points = selection.get("points") or []
                             if points:
-                                clicked_idx = points[0].get('pointNumber', points[0].get('pointIndex', points[0].get('location')))
+                                point = points[0]
+                                clicked_idx = point.get('pointNumber', point.get('pointIndex', point.get('location')))
                                 if clicked_idx is not None and clicked_idx < len(gdf_merged):
                                     clicked_precinct = gdf_merged.iloc[clicked_idx]['Precinct']
                                     clicked_borough = gdf_merged.iloc[clicked_idx]['borough']
@@ -1121,13 +1135,18 @@ with map_col:
                 st.caption("📝 Colors use a logarithmic scale for readability; hover values show actual citation counts.")
                 
                 # Enable click to select precinct
-                selected = st.plotly_chart(fig, use_container_width=True, key="precinct_map", on_select="rerun")
-                
+                chart_state = st.plotly_chart(
+                    fig,
+                    use_container_width=True,
+                    key="precinct_map",
+                    on_select="rerun",
+                )
+
                 # Handle click selection - locations corresponds to the index we set
-                if selected and 'selection' in selected and 'points' in selected['selection']:
-                    points = selected['selection']['points']
-                    if points and len(points) > 0:
-                        # Try multiple possible keys for the index
+                selection = getattr(chart_state, "selection", None)
+                if selection and isinstance(selection, dict):
+                    points = selection.get("points") or []
+                    if points:
                         point = points[0]
                         clicked_idx = point.get('pointNumber', point.get('pointIndex', point.get('location')))
                         
@@ -1456,13 +1475,19 @@ if 'state' in filtered_df.columns:
             )
             
             # Enable click interaction
-            selected = st.plotly_chart(fig, use_container_width=True, key="state_chart", on_select="rerun")
-            
+            chart_state = st.plotly_chart(
+                fig,
+                use_container_width=True,
+                key="state_chart",
+                on_select="rerun",
+            )
+
             # Handle click to filter by state
-            if selected and 'selection' in selected and 'points' in selected['selection']:
-                points = selected['selection']['points']
+            selection = getattr(chart_state, "selection", None)
+            if selection and isinstance(selection, dict):
+                points = selection.get("points") or []
                 if points:
-                    clicked_state = points[0]['y']
+                    clicked_state = points[0].get('y')
                     if clicked_state and clicked_state != 'UNKNOWN':
                         if st.session_state.selected_state == clicked_state:
                             # Click again to deselect
@@ -1534,13 +1559,19 @@ if 'issuing_agency' in filtered_df.columns:
                 )
                 
                 # Enable click interaction
-                selected = st.plotly_chart(fig, use_container_width=True, key="agency_chart_bar", on_select="rerun")
-                
+                chart_state = st.plotly_chart(
+                    fig,
+                    use_container_width=True,
+                    key="agency_chart_bar",
+                    on_select="rerun",
+                )
+
                 # Handle click to filter by agency
-                if selected and 'selection' in selected and 'points' in selected['selection']:
-                    points = selected['selection']['points']
+                selection = getattr(chart_state, "selection", None)
+                if selection and isinstance(selection, dict):
+                    points = selection.get("points") or []
                     if points:
-                        clicked_agency = points[0]['y']
+                        clicked_agency = points[0].get('y')
                         if clicked_agency:
                             if st.session_state.selected_agency == clicked_agency:
                                 # Click again to deselect
@@ -1574,13 +1605,19 @@ if 'issuing_agency' in filtered_df.columns:
                 fig.update_layout(height=500)
                 
                 # Enable click interaction
-                selected = st.plotly_chart(fig, use_container_width=True, key="agency_chart_pie", on_select="rerun")
-                
+                chart_state = st.plotly_chart(
+                    fig,
+                    use_container_width=True,
+                    key="agency_chart_pie",
+                    on_select="rerun",
+                )
+
                 # Handle click to filter by agency
-                if selected and 'selection' in selected and 'points' in selected['selection']:
-                    points = selected['selection']['points']
+                selection = getattr(chart_state, "selection", None)
+                if selection and isinstance(selection, dict):
+                    points = selection.get("points") or []
                     if points:
-                        clicked_agency = points[0]['label']
+                        clicked_agency = points[0].get('label')
                         if clicked_agency and clicked_agency != 'Other':
                             if st.session_state.selected_agency == clicked_agency:
                                 # Click again to deselect
