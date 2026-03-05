@@ -770,6 +770,12 @@ with out_col2:
             )
             top_plates.columns = ['License Plate', 'Citations']
 
+            # Show primary metric for the single most-cited license
+            top_plate_row = top_plates.iloc[0]
+            st.metric("Most-Cited License", top_plate_row['License Plate'])
+            st.caption(f"Citations: {int(top_plate_row['Citations']):,}")
+
+            # Also list the top 5 for context
             st.markdown("**Top 5 Offending License Plates**")
             for _, row in top_plates.iterrows():
                 st.caption(f"{row['License Plate']}: {int(row['Citations']):,} citations")
@@ -1456,78 +1462,155 @@ if 'state' in filtered_df.columns:
             st.info(f"Currently viewing only citations from **{st.session_state.selected_state}** registered vehicles. Click 'Clear All Filters' to see all states.")
             st.metric("Citations from this state", f"{len(filtered_df):,}")
     else:
-        st.subheader(f"📊 Top 15 Registration States in {selected_area}")
-        st.caption("💡 Tip: Click any bar to filter by that state")
-        
-        # Get top 15 states
-        top_states = filtered_df['state'].value_counts().head(15).reset_index()
-        top_states.columns = ['State', 'Count']
-        
-        # Calculate percentage
+        st.subheader(f"📊 Registration States Map in {selected_area}")
+        st.caption("💡 Tip: Click any state on the map to filter by that registration state")
+
+        # Aggregate by state (exclude UNKNOWN for mapping)
+        state_counts = (
+            filtered_df['state']
+            .value_counts()
+            .rename_axis('State')
+            .reset_index(name='Count')
+        )
+        state_counts_valid = state_counts[state_counts['State'] != 'UNKNOWN'].copy()
+
         total_citations = len(filtered_df)
-        top_states['Percentage'] = (top_states['Count'] / total_citations * 100).round(2)
-        
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            # Bar chart with solid color
-            fig = px.bar(
-                top_states,
-                x='Count',
-                y='State',
-                orientation='h',
-                title='Citation Count by Vehicle Registration State - Click a bar to filter'
-            )
-            fig.update_traces(
-                marker_color='#3498db',  # Solid blue color
-                texttemplate='%{x:,}',
-                textposition='outside',
-                hovertemplate='<b>%{y}</b><br>Citations: %{x:,}<br>👆 Click to filter<extra></extra>'
-            )
+        if total_citations > 0 and not state_counts_valid.empty:
+            state_counts_valid['Percentage'] = (
+                state_counts_valid['Count'] / total_citations * 100
+            ).round(2)
+
+            # Prepare data for choropleth: separate NY so it uses a distinct color
+            ny_mask = state_counts_valid['State'] == 'NY'
+            ny_row = state_counts_valid[ny_mask].head(1)
+            base_states = state_counts_valid[~ny_mask].copy()
+
+            fig = go.Figure()
+
+            if not base_states.empty:
+                # Log-scale color for non-NY states
+                base_states['log_count'] = np.log1p(base_states['Count'])
+
+                # Build human-readable ticks based on raw counts
+                max_count = float(base_states['Count'].max())
+                if max_count <= 0:
+                    raw_ticks = [0]
+                else:
+                    import math
+                    max_exp = int(math.floor(math.log10(max_count)))
+                    raw_ticks = [0]
+                    raw_ticks.extend([10 ** e for e in range(max_exp + 1)])
+                    if int(max_count) not in raw_ticks:
+                        raw_ticks.append(int(max_count))
+                    raw_ticks = sorted(set(raw_ticks))
+
+                tickvals = np.log1p(raw_ticks)
+                ticktext = [f"{int(t):,}" for t in raw_ticks]
+
+                fig.add_trace(
+                    go.Choropleth(
+                        locations=base_states['State'],
+                        z=base_states['log_count'],
+                        locationmode='USA-states',
+                        colorscale='Viridis',
+                        colorbar=dict(
+                            title='Citations (log scale)',
+                            tickvals=tickvals,
+                            ticktext=ticktext,
+                        ),
+                        marker_line_color='white',
+                        marker_line_width=0.5,
+                        customdata=np.stack(
+                            [base_states['Count'], base_states['Percentage']], axis=-1
+                        ),
+                        hovertemplate=(
+                            '<b>%{location}</b><br>'
+                            'Citations: %{customdata[0]:,}<br>'
+                            'Share: %{customdata[1]:.2f}%<extra></extra>'
+                        ),
+                    )
+                )
+
+            # Add NY as a separate overlay with a fixed color so it
+            # doesn't distort the shared color scale
+            if not ny_row.empty:
+                ny_count = int(ny_row.iloc[0]['Count'])
+                ny_pct = float(ny_row.iloc[0]['Percentage'])
+                fig.add_trace(
+                    go.Choropleth(
+                        locations=['NY'],
+                        z=[0],  # value unused; color comes from colorscale below
+                        locationmode='USA-states',
+                        colorscale=[[0, '#FF4B4B'], [1, '#FF4B4B']],
+                        showscale=False,
+                        marker_line_color='black',
+                        marker_line_width=0.7,
+                        customdata=np.array([[ny_count, ny_pct]]),
+                        hovertemplate=(
+                            '<b>NY (New York)</b><br>'
+                            'Citations: %{customdata[0]:,}<br>'
+                            'Share: %{customdata[1]:.2f}%'
+                            '<br><i>Highlighted separately from log scale</i><extra></extra>'
+                        ),
+                    )
+                )
+
             fig.update_layout(
+                title='Vehicle Registration States (log-scale choropleth, NY highlighted)',
+                geo=dict(
+                    scope='usa',
+                    projection=go.layout.geo.Projection(type='albers usa'),
+                    showlakes=True,
+                    lakecolor='rgb(255, 255, 255)',
+                ),
+                margin=dict(l=0, r=0, t=50, b=0),
                 height=500,
-                showlegend=False,
-                yaxis={'categoryorder': 'total ascending'},
-                xaxis_title='Number of Citations',
-                yaxis_title='State'
-            )
-            
-            # Enable click interaction
-            chart_state = st.plotly_chart(
-                fig,
-                use_container_width=True,
-                key="state_chart",
-                on_select="rerun",
             )
 
-            # Handle click to filter by state
-            selection = getattr(chart_state, "selection", None)
-            if selection and isinstance(selection, dict):
-                points = selection.get("points") or []
-                if points:
-                    clicked_state = points[0].get('y')
-                    if clicked_state and clicked_state != 'UNKNOWN':
-                        prev_state = st.session_state.get('selected_state')
-                        if prev_state == clicked_state:
-                            # Click again to deselect
-                            st.session_state.selected_state = None
-                        else:
-                            st.session_state.selected_state = clicked_state
-                        st.rerun()
-        
-        with col2:
-            # Summary statistics
-            st.markdown("#### State Statistics")
-            st.metric("Total States", filtered_df['state'].nunique())
-            
-            if len(top_states) > 0:
-                st.metric("Top State", top_states.iloc[0]['State'])
-                st.metric("Top State %", f"{top_states.iloc[0]['Percentage']:.1f}%")
-                
-                # Show top 5 with percentages
-                st.markdown("**Top 5 States:**")
-                for idx, row in top_states.head(5).iterrows():
-                    st.write(f"**{row['State']}**: {row['Count']:,} ({row['Percentage']:.1f}%)")
+            col1, col2 = st.columns([2, 1])
+
+            with col1:
+                chart_state = st.plotly_chart(
+                    fig,
+                    use_container_width=True,
+                    key="state_chart",
+                    on_select="rerun",
+                )
+
+                # Handle click to filter by state
+                selection = getattr(chart_state, "selection", None)
+                if selection and isinstance(selection, dict):
+                    points = selection.get("points") or []
+                    if points:
+                        clicked_state = points[0].get('location')
+                        if clicked_state and clicked_state != 'UNKNOWN':
+                            prev_state = st.session_state.get('selected_state')
+                            if prev_state == clicked_state:
+                                # Click again to deselect
+                                st.session_state.selected_state = None
+                            else:
+                                st.session_state.selected_state = clicked_state
+                            st.rerun()
+
+            with col2:
+                # Summary statistics
+                st.markdown("#### State Statistics")
+                st.metric("Total States", state_counts_valid['State'].nunique())
+
+                if len(state_counts_valid) > 0:
+                    st.metric("Top State", state_counts_valid.iloc[0]['State'])
+                    st.metric(
+                        "Top State %",
+                        f"{state_counts_valid.iloc[0]['Percentage']:.1f}%",
+                    )
+
+                    # Show top 5 with percentages
+                    st.markdown("**Top 5 States:**")
+                    for _, row in state_counts_valid.head(5).iterrows():
+                        st.write(
+                            f"**{row['State']}**: {row['Count']:,} "
+                            f"({row['Percentage']:.1f}%)"
+                        )
 
 # Issuing agency analysis
 if 'issuing_agency' in filtered_df.columns:
