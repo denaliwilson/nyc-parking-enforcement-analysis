@@ -747,7 +747,8 @@ with out_col1:
         st.metric("Highest Fine", "N/A")
 
 with out_col2:
-    plate_col = 'plate_masked' if 'plate_masked' in df.columns else ('plate' if 'plate' in df.columns else None)
+    # Prefer full plate values when available; fall back to masked
+    plate_col = 'plate' if 'plate' in df.columns else ('plate_masked' if 'plate_masked' in df.columns else None)
     if plate_col and df[plate_col].notna().any():
         plate_counts = (
             df[df[plate_col].notna()]
