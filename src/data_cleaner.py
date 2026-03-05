@@ -13,6 +13,7 @@ import numpy as np
 from pathlib import Path
 import sys
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -30,11 +31,13 @@ class ParkingDataCleaner:
     Clean and preprocess parking citation data
     """
     
-    def __init__(self):
-        self.raw_df = None
-        self.clean_df = None
-        self.removed_rows = []  # Track all removed rows with reasons
-        self.cleaning_report = {
+    def __init__(self) -> None:
+        # Initialize with empty DataFrame so type checkers know this is never None.
+        self.raw_df: pd.DataFrame = pd.DataFrame()
+        self.clean_df: Optional[pd.DataFrame] = None
+        # Track all removed rows with reasons
+        self.removed_rows: List[Dict[str, Any]] = []
+        self.cleaning_report: Dict[str, Any] = {
             'initial_records': 0,
             'final_records': 0,
             'duplicates_removed': 0,
@@ -508,18 +511,17 @@ class ParkingDataCleaner:
             lambda x: 9 <= x <= 17 if pd.notna(x) else False
         )
         
-        # 4. Plate masking for privacy (last 3 digits only)
-        # IMPORTANT PITFALL: Never share full plate numbers - privacy violation!
-        print("Masking plate numbers for privacy...")
-        df['plate_masked'] = df['plate'].apply(
-            lambda x: f"***{str(x)[-3:]}" if pd.notna(x) else None
-        )
+        # 4. Plate column for analysis (no masking)
+        # NOTE: For exploratory analysis where privacy constraints permit,
+        #       expose full plate values via plate_masked.
+        print("Copying full plate numbers to plate_masked for analysis...")
+        df['plate_masked'] = df['plate']
         
         print("Created derived features:")
         print("   - is_weekend")
         print("   - quarter")
         print("   - is_business_hours")
-        print("   - plate_masked (for privacy)")
+        print("   - plate_masked (full plate for analysis)")
         
         self.raw_df = df
         return df

@@ -753,7 +753,13 @@ with out_col2:
             df[df[plate_col].notna()]
             .assign(_plate_clean=lambda x: x[plate_col].astype(str).str.strip())
         )
-        plate_counts = plate_counts[plate_counts['_plate_clean'] != '']
+        # Basic sanity filters to remove placeholder/invalid plates
+        plate_counts = plate_counts[
+            plate_counts['_plate_clean'].ne('')
+            & plate_counts['_plate_clean'].str.contains('[A-Za-z0-9]', regex=True)
+            & ~plate_counts['_plate_clean'].str.startswith('***')
+            & ~plate_counts['_plate_clean'].str.fullmatch(r'\*+')
+        ]
 
         if len(plate_counts) > 0:
             top_plates = (
