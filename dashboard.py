@@ -760,6 +760,7 @@ with out_col2:
             & plate_counts['_plate_clean'].str.contains('[A-Za-z0-9]', regex=True)
             & ~plate_counts['_plate_clean'].str.startswith('***')
             & ~plate_counts['_plate_clean'].str.fullmatch(r'\*+')
+            & plate_counts['_plate_clean'].ne('BLANKPLATE')
         ]
 
         if len(plate_counts) > 0:
